@@ -27,7 +27,55 @@ DP_ADJUST = {
     },
 }
 
+# def R_correction(
+#     ds: Dataset,
+#     instruments_to_use: dict[str, dict[str, bool]],
+#     water_frequency_threshold: float = 0.9,
+# ) -> Dataset:
+#     """
+#     Applies atmospheric dark pixel (R) correction to specified
+#     remote sensing bands within an xarray Dataset.
 
+#     Skips gracefully if expected variables are missing.
+#     """
+
+#     for sensor, config in instruments_to_use.items():
+#         if not config.get("use", False):
+#             log.info(f"Skipping dark pixel correction for {sensor}: not enabled")
+#             continue
+
+#         if sensor not in DP_ADJUST:
+#             log.warning(f"{sensor} not in DP_ADJUST — skipping")
+#             continue
+
+#         log.info(f"Performing dark pixel correction for sensor {sensor} ...")
+
+#         ref_var = DP_ADJUST[sensor]["ref_var"]
+#         if ref_var not in ds.data_vars:
+#             log.warning(
+#                 f"Skipping {sensor}: reference variable {ref_var} not found in dataset"
+#             )
+#             continue
+
+#         for target_var in DP_ADJUST[sensor]["var_list"]:
+#             if target_var not in ds.data_vars:
+#                 log.warning(
+#                     f"Skipping {sensor}: target variable {target_var} not found in dataset"
+#                 )
+#                 continue
+
+#             new_var = target_var + "r"
+#             ds[new_var] = (
+#                 (ds[target_var] - ds[ref_var])
+#                 .where(ds[target_var] > ds[ref_var], 0)
+#                 .where(ds[target_var] > 0)
+#                 .where(
+#                     ds.wofs_ann_freq > water_frequency_threshold,
+#                     ds[target_var],
+#                 )
+#             )
+
+#     return ds
 def R_correction(
     ds: Dataset,
     instruments_to_use: dict[str, dict[str, bool]],

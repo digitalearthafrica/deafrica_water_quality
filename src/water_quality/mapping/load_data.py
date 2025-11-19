@@ -398,6 +398,7 @@ def _load_and_reproject_instrument_data(
     proccess_loaded_data_func: Callable[
         [dict[str, xr.Dataset]], dict[str, xr.Dataset]
     ],
+    compute: bool = True,
 ) -> tuple[dict[str, xr.Dataset], dict[str, list[UUID]]]:
     """
     Helper function to load, compute, and reproject instrument data from
@@ -420,6 +421,11 @@ def _load_and_reproject_instrument_data(
         the `dc_queries` by, ensuring only relevant instruments are loaded.
     dc : Datacube
         Datacube connection to use when loading data.
+    proccess_loaded_data_func : Callable
+        Function to process loaded data before computation/reprojection.
+    compute : bool, optional
+        Whether to compute the dask arrays immediately, by default True.
+        Set to False to keep datasets lazy for memory efficiency.
 
     Returns
     -------
@@ -427,7 +433,7 @@ def _load_and_reproject_instrument_data(
         A tuple containing:
             - A dictionary mapping the instrument name to a **computed and
                 reprojected** xarray Dataset containing data found for the
-                instrument in the datacube.
+                instrument in the datacube (or lazy if compute=False).
             - A dictionary mapping the instrument name to a list of
             UUIDs for the datasets loaded for the instrument.
     """
@@ -481,19 +487,30 @@ def _load_and_reproject_instrument_data(
 
     loaded_data = proccess_loaded_data_func(loaded_data)
 
-    log.info("Computing instrument datasets ...")
-    loaded_data = dict(
-        zip(loaded_data.keys(), dask.compute(*loaded_data.values()))
-    )
+    if compute:
+        log.info("Computing instrument datasets ...")
+        loaded_data = dict(
+            zip(loaded_data.keys(), dask.compute(*loaded_data.values()))
+        )
 
-    log.info("Reprojecting instrument datasets ...")
-    for instrument_name, ds in loaded_data.items():
-        if ds.odc.geobox.resolution != tile_geobox.resolution:
-            loaded_data[instrument_name] = xr_reproject(
-                loaded_data[instrument_name],
-                how=tile_geobox,
-                resampling=dc_queries[instrument_name]["resampling"],
-            )
+        log.info("Reprojecting instrument datasets ...")
+        for instrument_name, ds in loaded_data.items():
+            if ds.odc.geobox.resolution != tile_geobox.resolution:
+                loaded_data[instrument_name] = xr_reproject(
+                    loaded_data[instrument_name],
+                    how=tile_geobox,
+                    resampling=dc_queries[instrument_name]["resampling"],
+                )
+    else:
+        # Keep lazy, but still do reprojection (also lazy)
+        log.info("Preparing lazy reprojection for instrument datasets ...")
+        for instrument_name, ds in loaded_data.items():
+            if ds.odc.geobox.resolution != tile_geobox.resolution:
+                loaded_data[instrument_name] = xr_reproject(
+                    loaded_data[instrument_name],
+                    how=tile_geobox,
+                    resampling=dc_queries[instrument_name]["resampling"],
+                )
 
     return loaded_data, input_datasets
 
@@ -514,7 +531,7 @@ def load_single_day_instruments_data(
 
     tile_geobox : GeoBox
         Defines the location and resolution of a rectangular grid of
-        data, including it’s crs.
+        data, including it's crs.
 
     dc: Datacube
         Datacube connection to use when loading data.
@@ -553,6 +570,7 @@ def load_single_day_instruments_data(
         instruments_to_filter=list(SINGLE_DAY_INSTRUMENTS.keys()),
         dc=dc,
         proccess_loaded_data_func=_process_single_day_instrument_data,
+        compute=True,  # Single day instruments still compute immediately
     )
     return (loaded_data, input_datasets)
 
@@ -561,6 +579,7 @@ def load_composite_instruments_data(
     dc_queries: dict[str, dict[str, Any]],
     tile_geobox: GeoBox,
     dc: Datacube = None,
+    compute: bool = True,
 ) -> tuple[dict[str, xr.Dataset], dict[str, list[UUID]]]:
     """
     Load data for each composite instrument using the datacube queries
@@ -573,17 +592,22 @@ def load_composite_instruments_data(
 
     tile_geobox : GeoBox
         Defines the location and resolution of a rectangular grid of
-        data, including it’s crs.
+        data, including it's crs.
 
     dc: Datacube
         Datacube connection to use when loading data.
+
+    compute : bool, optional
+        Whether to compute the dask arrays immediately, by default True.
+        Set to False to keep datasets lazy for memory efficiency.
 
     Returns
     -------
     tuple[dict[str, xr.Dataset], dict[str, list[UUID]]]
         A tuple containing:
-            - A dictionary mapping the instrument name to the a Dataset
+            - A dictionary mapping the instrument name to a Dataset
                 containing data found for the instrument in the datacube.
+                If compute=False, datasets will be lazy (dask arrays).
             - A dictionary mapping the instrument name to a list of
             uuids for the datasets loaded for the instrument.
     """
@@ -593,7 +617,7 @@ def load_composite_instruments_data(
     def _process_composite_instrument_data(
         loaded_data: dict[str, xr.Dataset],
     ) -> dict[str, xr.Dataset]:
-        """Process composite sallelite instrument data."""
+        """Process composite satellite instrument data."""
         if "tirs" in loaded_data.keys():
             log.info(
                 "Processing surface temperature data to annual composite ..."
@@ -617,6 +641,7 @@ def load_composite_instruments_data(
         instruments_to_filter=list(COMPOSITE_INSTRUMENTS.keys()),
         dc=dc,
         proccess_loaded_data_func=_process_composite_instrument_data,
+        compute=compute,
     )
 
     return loaded_data, input_datasets
@@ -638,7 +663,7 @@ def build_wq_agm_dataset(
 
     tile_geobox : GeoBox
         Defines the location and resolution of a rectangular grid of
-        data, including it’s crs.
+        data, including it's crs.
 
     dc: Datacube
         Datacube connection to use when loading data.
@@ -655,11 +680,23 @@ def build_wq_agm_dataset(
     """
     if dc is None:
         dc = Datacube(app="Build_wq_agm_dataset")
+    
+    # Keep datasets lazy by setting compute=False
     loaded_data, input_datasets = load_composite_instruments_data(
-        dc_queries=dc_queries, tile_geobox=tile_geobox, dc=dc
+        dc_queries=dc_queries, 
+        tile_geobox=tile_geobox, 
+        dc=dc,
+        compute=False
     )
+    
+    # Merge while still lazy
+    log.info("Merging instrument datasets (lazy) ...")
     combined = xr.merge(list(loaded_data.values()))
     combined = combined.drop_vars("quantile", errors="ignore")
+    
+    # Compute only once at the very end
+    log.info("Computing final merged dataset ...")
+    combined = combined.compute()
 
     source_datasets_uuids = list(chain.from_iterable(input_datasets.values()))
     return combined, source_datasets_uuids
