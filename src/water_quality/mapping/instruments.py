@@ -29,6 +29,17 @@ INSTRUMENTS_MEASUREMENTS = {
         },
         "count_wet": {"varname": ("wofs_ann_wetcount"), "parameters": (True,)},
     },
+    "wofs_all": {
+        "frequency": {
+            "varname": ("wofs_all_freq"),
+            "parameters": (True, "other"),
+        },
+        "count_clear": {
+            "varname": ("wofs_all_clearcount"),
+            "parameters": (True,),
+        },
+        "count_wet": {"varname": ("wofs_all_wetcount"), "parameters": (True,)},
+    },
     "oli_agm": {
         "SR_B2": {"varname": ("oli02_agm"), "parameters": (True, "450-510")},
         "SR_B3": {"varname": ("oli03_agm"), "parameters": (True, "530-590")},
@@ -68,14 +79,14 @@ INSTRUMENTS_MEASUREMENTS = {
         "B8A": {
             "varname": ("msi8a_agm"),
             "parameters": (
-                False,
+                True,
                 "uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN",
             ),
         },
         "B11": {
             "varname": ("msi11_agm"),
             "parameters": (
-                False,
+                True,
                 "uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN",
             ),
         },
@@ -94,40 +105,61 @@ INSTRUMENTS_MEASUREMENTS = {
     "msi": {
         "B01": {
             "varname": ("msi01"),
-            "parameters": (False, "Coastal aerosol"),
+            "parameters": (
+                False,
+                " 442 bandwidth 20 nm, spatial 60 m, Coastal aerosol",
+            ),
         },
-        "B02": {"varname": ("msi02"), "parameters": (True, "460-525")},
-        "B03": {"varname": ("msi03"), "parameters": (True,)},
-        "B04": {"varname": ("msi04"), "parameters": (True,)},
-        "B05": {"varname": ("msi05"), "parameters": (True,)},
-        "B06": {"varname": ("msi06"), "parameters": (True,)},
-        "B07": {"varname": ("msi07"), "parameters": (True,)},
+        "B02": {
+            "varname": ("msi02"),
+            "parameters": (True, " 493 bandwidth 65 nm, spatial 10 m,"),
+        },
+        "B03": {
+            "varname": ("msi03"),
+            "parameters": (True, " 559 bandwidth 35 nm, spatial 10 m,"),
+        },
+        "B04": {
+            "varname": ("msi04"),
+            "parameters": (True, " 665 bandwidth 31 nm, spatial 10 m,"),
+        },
+        "B05": {
+            "varname": ("msi05"),
+            "parameters": (True, " 704 bandwidth 14 nm, spatial 20 m"),
+        },
+        "B06": {
+            "varname": ("msi06"),
+            "parameters": (True, " 741 bandwidth 13 nm, spatial 20 m,"),
+        },
+        "B07": {
+            "varname": ("msi07"),
+            "parameters": (True, " 780 bandwidth 19 nm, spatial 20 m,"),
+        },
         "B08": {
             "varname": ("msi08"),
             "parameters": (
                 False,
-                "uint16 	1 	0.0 	[band_08, nir, nir_1] 	NaN",
+                " 833 bandwidth 104 nm, spatial 10 m, uint16 	1 	0.0 	[band_08, nir, nir_1] 	NaN",
             ),
         },
         "B8A": {
             "varname": ("msi8a"),
             "parameters": (
-                False,
-                "uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN",
+                True,
+                " 864 bandwidth 21 nm, spatial 20 m, uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN",
             ),
         },
         "B11": {
             "varname": ("msi11"),
             "parameters": (
-                False,
-                "uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN",
+                True,
+                "1612 bandwidth 92 nm, spatial 20 m, uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN",
             ),
         },
         "B12": {
             "varname": ("msi12"),
             "parameters": (
                 True,
-                "uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN",
+                "2193 bandwidth 180 nm, spatial 20 m, uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN",
             ),
         },
         "qa": {"varname": ("msi_qa"), "parameters": (True,)},

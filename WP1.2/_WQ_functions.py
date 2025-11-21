@@ -29,12 +29,12 @@ def run_OWT(ds,verbose=False):
                           agm=True,
                           test=False, 
                           verbose=verbose) 
-            varname = instrument+'_agm_owt'
-            if varname in ds.data_vars:
-                ds[varname] = xr.where(~np.isnan(OWT_data),OWT_data,ds[varname])
-            else : 
-                ds[varname] = OWT_data
-            del OWT_data
+                varname = instrument+'_agm_owt'
+                if varname in ds.data_vars:
+                    ds[varname] = xr.where(~np.isnan(OWT_data),OWT_data,ds[varname])
+                else : 
+                    ds[varname] = OWT_data
+                del OWT_data
     silent  = gc.collect()
     return(ds)
 

@@ -1,8 +1,6 @@
 # deafrica_water_quality
 
-repo for code development to produce a water quality service
-
-Organised by work packages, at least in part.
+repo for code development to produce a water quality service organized by work packages, at least in part.
 
 ## wq command line tools
 
@@ -37,7 +35,7 @@ Usage: wq-generate-tasks [OPTIONS] START_YEAR END_YEAR OUTPUT_FILE
   be written to the file OUTPUT_FILE.
 
 Options:
-  --tile-ids TEXT       Optional list of comma seperated tile IDs in the
+  --tile-ids TEXT       Optional list of comma separated tile IDs in the
                         format x{x:02d}/y{y:02d} to generate tasks for. For
                         example `x188/y109,x178/y095,x199y/100`
   --tile-ids-file TEXT  Optional path to text file containing the tile IDs to
@@ -83,7 +81,7 @@ Usage: wq-process-tasks [OPTIONS] OUTPUT_DIRECTORY MAX_PARALLEL_STEPS
   index determines which subset of tasks the current worker will process.
 
 Options:
-  --tasks TEXT                  List of comma seperated tasks in the
+  --tasks TEXT                  List of comma separated tasks in the
                                 formatyear/x{x:02d}/y{y:02d} to generate water
                                 quality variables for. For example
                                 `2015/x200/y34,x178/y095,x199y/100`

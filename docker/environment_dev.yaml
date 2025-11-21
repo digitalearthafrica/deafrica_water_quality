@@ -3,23 +3,26 @@ channels:
   - conda-forge
 dependencies:
   # ODC ecosystem libraries
-  - odc-loader
   - odc-stac
   # Code formatting
+  - pre-commit
   - ruff
   - yamllint
   # Tests
   - coverage
   - pytest
   # Jupyter
-  - jupyterlab
+  - jupytergis
+  - qgis
   - jupyterlab_iframe
   - jupyter-resource-usage
   - nodejs
+  # Jupyter Ai
+  - jupyter-ai
+  - langchain-google-genai
   # developer tools
+  - curl
   - make
   - wget
-  - curl
-  # packages requiring pip
-  - pip:
-    - memory-profiler
+  - unzip
+  # Do not use pip packages in environment file

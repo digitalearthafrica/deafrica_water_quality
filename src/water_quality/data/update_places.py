@@ -189,12 +189,12 @@ def place_to_parquet():
         "Lake_vic_algae": {
             "run": True,
             "xyt": {
-                "x": (34.45, 34.58),
-                "y": (-0.275, -0.210),
-                "time": ("2015-04-15", "2015-05-30"),
+                "x": (34.62, 34.78),
+                "y": (-0.18, -0.08),
+                "time": (year1, year2),
             },
-            "desc": "Lake Victoria turbid area in NE",
-        },  # lake vic turbid is case study for algal bloom I think vis in l7 etm 2015-05-03.
+            "desc": "Lake Victoria Water Hyacinth affected area in NE, port Kisumu",
+        },
         "Lake_vic_clear": {
             "run": True,
             "xyt": {
@@ -329,6 +329,42 @@ def place_to_parquet():
                 "time": (year1, year2),
             },
             "desc": "Ethiopia, Lake Abiata +",
+        },
+        "Lake Chamo": {
+            "run": True,
+            "xyt": {
+                "x": (37.45, 37.65),
+                "y": (5.685, 5.979),
+                "time": (year1, year2),
+            },
+            "desc": "Lake Chamo, Ethiopia",
+        },
+        "Lake Ziway": {
+            "run": True,
+            "xyt": {
+                "x": (38.711, 38.966),
+                "y": (7.838, 8.148),
+                "time": (year1, year2),
+            },
+            "desc": "Lake Ziway, Ethiopia",
+        },
+        "Lake Alwassa": {
+            "run": True,
+            "xyt": {
+                "x": (38.380, 38.493),
+                "y": (6.977, 7.133),
+                "time": (year1, year2),
+            },
+            "desc": "Lake Alwassa, Ethiopia",
+        },
+        "Lake Elmenteita": {
+            "run": True,
+            "xyt": {
+                "x": (36.211, 36.273),
+                "y": (-0.488, -0.401),
+                "time": (year1, year2),
+            },
+            "desc": "Lake Elmenteita, Kenya",
         },
         "Madagascar": {
             "run": True,
@@ -590,6 +626,24 @@ def place_to_parquet():
                 "time": (year1, year2),
             },
             "desc": "Kenya -- Lake Turkana",
+        },
+        "Haartbeesport_dam": {
+            "run": True,
+            "xyt": {
+                "x": (27.7972, 27.91117),
+                "y": (-25.7761, -25.7275),
+                "time": (year1, year2),
+            },
+            "desc": "Haartbeesport Dam  -- South Africa",
+        },
+        "Lake Bogoria": {
+            "run": True,
+            "xyt": {
+                "x": (36.058, 36.133),
+                "y": (0.1791, 0.3534),
+                "time": (year1, year2),
+            },
+            "desc": "Lake Bogoria -- Tanzania",
         },
     }
 

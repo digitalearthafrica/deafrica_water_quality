@@ -8,10 +8,12 @@
 *.local/**
 *.npm/**
 **/.ipynb_checkpoints/**
+**/.jupyter_ystore.db
 # Bash files
 .bash_history
 # Dev containers files
 *.ssh/**
+*.vscode/**
 *.vscode-server/**
 *.dotnet/**
 # Ignore items in data folder
@@ -27,6 +29,7 @@ core
 mprofile_*
 # Ignore items in tmp folder
 tmp/**
+.tmp/**
 # Ignore items in notebooks folder
 notebooks/**
 # Environments
@@ -41,3 +44,5 @@ WP1.3/**
 **/water_quality_regions.parquet
 # secrets
 .env
+# Nix files
+.direnv/**

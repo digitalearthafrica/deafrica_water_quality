@@ -1,6 +1,6 @@
 
 [build-system]
-requires = ["setuptools"] 
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -22,8 +22,8 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "click",
-    "datacube[performance,distributed,s3]",
-    "dask[array,distributed]", 
+    "datacube[performance,distributed,s3]>=1.9.0",
+    "dask[array,distributed]",
     "deafrica-tools",
     "eodatasets3",
     "fsspec",
@@ -35,7 +35,8 @@ dependencies = [
     "odc-cloud[ASYNC]",
     "odc-dscache",
     "odc-geo",
-    "odc-stats",
+    "odc-loader @ git+https://github.com/opendatacube/odc-loader.git@7cf11257766783d63a10a524f5c1a59e70960f22",
+    "odc-stats>=1.9.6",
     "pandas",
     "PyYAML",
     "pyarrow>=20.0.0",
@@ -53,7 +54,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff",
-    "yamlint", 
+    "yamlint",
  ]
 test = [
     "pytest",
@@ -70,6 +71,7 @@ wq-list-test-areas = "water_quality.cli.list_test_areas:cli"
 wq-generate-tiles = "water_quality.cli.generate_tiles:cli"
 wq-generate-tasks = "water_quality.cli.generate_tasks:cli"
 wq-process-annual-wq-variables = "water_quality.cli.process_annual_wq_variables:cli"
+wq-prepare-metadata = "water_quality.cli.metadata_generator:cli"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -1,5 +1,9 @@
+from water_quality.grid import check_resolution
+
+
 def check_config(analysis_config: dict) -> dict:
-    """Validates the provided analysis configuration dictionary.
+    """Validate the provided analysis configuration dictionary and
+    extract the necessary parameters.
 
     This function ensures that the `analysis_config` is not None and
     contains all the necessary parameters required for the analysis.
@@ -33,13 +37,27 @@ def check_config(analysis_config: dict) -> dict:
         "sigma_coefficient",
         "product",
     ]
+
     missing_parameters = []
     for k in config_items:
         if k not in list(analysis_config.keys()):
             missing_parameters.append(k)
     if missing_parameters:
         raise ValueError(
-            f"The following analysis parameters not found {', '.join(missing_parameters)} "
+            "The following analysis parameters not found "
+            f"{', '.join(missing_parameters)} "
         )
 
-    return analysis_config
+    resolution_m = check_resolution(int(analysis_config["resolution"]))
+    product_info = analysis_config["product"]
+
+    return dict(
+        resolution=resolution_m,
+        WFTH=analysis_config["water_frequency_threshold_high"],
+        WFTL=analysis_config["water_frequency_threshold_low"],
+        PWT=analysis_config["permanent_water_threshold"],
+        SC=analysis_config["sigma_coefficient"],
+        product_name=product_info["name"],
+        product_version=product_info["version"],
+        instruments_to_use=analysis_config["instruments_to_use"],
+    )

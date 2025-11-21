@@ -1,0 +1,9 @@
+﻿band_name,desc,central,width,min,max,nominal ifov (m),nominal pixel (m),notes
+tm01,blue,485,35,450,520,30,30,'
+tm02,green,560,40,520,600,30,30,'
+tm03,red,660,30,630,690,30,30,'
+tm04,nir,832.5,67.5,765,900,30,30,'
+mt05,swir1,1650,100,1550,1750,30,30,'
+tm06,thermal,1145,105,1040,1250,120,30,'
+tm07,swir2,2217.5,132.5,2085,2350,30,30,'
+tm08,panchromatic,710,190,520,900,15,15,only on ETM+

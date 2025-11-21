@@ -1,41 +1,41 @@
 import logging
 
+import numpy as np
+import xarray as xr
 from xarray import Dataset
 
 log = logging.getLogger(__name__)
 
 # Parameters for dark pixel correction
 DP_ADJUST = {
-    "msi_agm": {
-        "ref_var": "msi12_agm",
+    "msi": {
+        "ref_var": "msi12",
         "var_list": [
-            "msi04_agm",
-            "msi03_agm",
-            "msi02_agm",
-            "msi05_agm",
-            "msi06_agm",
-            "msi07_agm",
+            "msi04",
+            "msi03",
+            "msi02",
+            "msi01",
+            "msi05",
+            "msi06",
+            "msi07",
         ],
     },
-    "oli_agm": {
-        "ref_var": "oli07_agm",
-        "var_list": ["oli04_agm", "oli03_agm", "oli02_agm"],
+    "oli": {
+        "ref_var": "oli07",
+        "var_list": ["oli04", "oli03", "oli02", "oli01"],
     },
-    "tm_agm": {
-        "ref_var": "tm07_agm",
-        "var_list": ["tm04_agm", "tm03_agm", "tm02_agm", "tm01_agm"],
-    },
+    "tm": {"ref_var": "tm07", "var_list": ["tm04", "tm03", "tm02", "tm01"]},
 }
 
 
 def R_correction(
     ds: Dataset,
     instruments_to_use: dict[str, dict[str, bool]],
-    water_frequency_threshold: float = 0.9,
+    drop: bool = False,
 ) -> Dataset:
     """
-    Applies atmospheric dark pixel (R) correction to specified
-    remote sensing bands within an xarray Dataset.ary_
+    Applies atmospheric dark pixel Rayleigh correction (R) correction
+    to specified remote sensing bands within an xarray Dataset.
 
     This function iterates through defined sensors and, if enabled,
     performs a dark pixel subtraction.
@@ -44,18 +44,14 @@ def R_correction(
     ----------
     ds : xarray.Dataset
         An xarray Dataset containing remote sensing bands
-        (e.g., 'msi04_agm', 'oli07_agm') and 'wofs_ann_freq' for
+        (e.g., 'msi04_agm', 'oli07_agm') and 'water_mask' for
         water masking.
     instruments_to_use : dict[str, dict[str, bool]]
         A dictionary of the instruments used to get the remote sensing
         bands.
-    water_frequency_threshold : float, optional
-        The water frequency threshold. Pixels with 'wofs_ann_freq'
-        values below this threshold will have their original
-        (uncorrected) band values retained, effectively excluding
-        water bodies from the dark pixel correction. Defaults to 0.9.
-
-
+    drop : bool, optional
+        If True, the original uncorrected bands will be dropped from the
+        Dataset after correction, by default False.
     Returns
     -------
     xarray.Dataset
@@ -63,48 +59,74 @@ def R_correction(
         added. Each corrected band will have its original name appended
         with 'r' (e.g., 'msi04_agm' becomes 'msi04_agmr').
     """
-    for sensor in DP_ADJUST.keys():
-        if sensor in instruments_to_use.keys():
-            usage = instruments_to_use[sensor]["use"]
-            if usage:
-                log.info(
-                    f"Performing dark pixel correction for sensor {sensor} ..."
-                )
-                ref_var = DP_ADJUST[sensor]["ref_var"]
-                if ref_var not in ds.data_vars:
-                    raise ValueError(
-                        f"Variable {ref_var} expected  but not found in the "
-                        f"dataset - correction FAILING for sensor {sensor}",
-                    )
-                else:
-                    for target_var in DP_ADJUST[sensor]["var_list"]:
-                        if target_var not in ds.data_vars:
-                            raise ValueError(
-                                f"Variable {target_var} expected  but not "
-                                "found in the dataset; terminating the "
-                                "R_correction"
-                            )
-                        else:
-                            new_var = str(target_var + "r")
-                            ds[new_var] = (
-                                (ds[target_var] - ds[ref_var])
-                                .where(ds[target_var] > ds[ref_var], 0)
-                                .where(ds[target_var] > 0)
-                                .where(
-                                    ds.wofs_ann_freq
-                                    > water_frequency_threshold,
-                                    ds[target_var],
-                                )
-                            )
+    # Get the instruments in the dataset that the pixel correction
+    # will be applied.
 
+    for inst in instruments_to_use:
+        usage = instruments_to_use[inst]["use"]
+        if usage is True:
+            # Get the pixel correction parameters for
+            # the instrument.
+            if "agm" in inst:
+                inst_prefix = inst.split("_")[0]
+                if inst_prefix not in DP_ADJUST.keys():
+                    continue
+                else:
+                    ref_var = f"{DP_ADJUST[inst_prefix]['ref_var']}_agm"
+                    target_vars = [
+                        f"{i}_agm" for i in DP_ADJUST[inst_prefix]["var_list"]
+                    ]
             else:
-                log.info(
-                    f"Dark pixel correction requested for sensor {sensor}, "
-                    "but sensor is not used in analysis."
-                )
-        else:
-            raise ValueError(
-                f"Dark pixel correction requested for sensor {sensor}, but "
-                "sensor is not listed in instruments to use."
+                if inst not in DP_ADJUST.keys():
+                    continue
+                else:
+                    ref_var = DP_ADJUST[inst]["ref_var"]
+                    target_vars = DP_ADJUST[inst]["var_list"]
+
+            log.info(
+                f"Performing dark pixel correction for instrument {inst} ..."
             )
+            if ref_var not in ds.data_vars:
+                raise ValueError(
+                    f"Variable {ref_var} expected  but not found in the "
+                    f"dataset - correction FAILING for instrument {inst}",
+                )
+            else:
+                for target_var in target_vars:
+                    if target_var not in ds.data_vars:
+                        log.error(
+                            ValueError(
+                                f"Variable {target_var} expected  but not found in the "
+                                f"dataset - (non-fatal error) for instrument {inst}",
+                            )
+                        )
+                    else:
+                        new_var = f"{target_var}r"
+                        # Prevent overwriting.
+                        if new_var in ds.data_vars:
+                            ds = ds.drop_vars(new_var)
+
+                        # Initialize new_var with zeros and the same
+                        # dimensions as ref_var
+                        ds[new_var] = ds[ref_var] * 0.0
+
+                        # Calculate a modified value:
+                        ds[new_var] = xr.where(
+                            ds[target_var] > 0,
+                            xr.where(
+                                ds[target_var] > ds[ref_var],
+                                ds[target_var] - ds[ref_var],
+                                ds[target_var],
+                            ),
+                            np.nan,
+                        )
+                        ds[new_var] = ds[new_var].where(
+                            ds["water_mask"] == 1, ds[target_var]
+                        )
+
+                        if drop:
+                            # Rename the modified variable to replace the original
+                            ds = ds.drop_vars(target_var)
+                            ds = ds.rename({new_var: target_var})
+
     return ds

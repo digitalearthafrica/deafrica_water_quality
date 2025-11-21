@@ -9,7 +9,7 @@ dependencies:
   - libgdal-arrow-parquet
   - postgresql
   # datacube + optional dependencies
-  - datacube
+  - datacube>=1.9.0
   - boto3
   - botocore
   - bottleneck
@@ -21,8 +21,6 @@ dependencies:
   - aiobotocore[boto3]
   - odc-dscache
   - odc-geo
-  # required for odc-stats==1.0.60
-  - odc-algo==0.2.3
   # dask + extras
   - dask
   - distributed
@@ -59,9 +57,6 @@ dependencies:
   - tqdm
   - yarl
   # required for building hdstats
-  - compilers 
-  # packages requiring pip
-  - pip:
-    - assets/tflite_runtime-2.20.0-cp312-cp312-linux_x86_64.whl
-    - odc-stats==1.0.60
-    - deafrica-tools
+  - compilers
+  # developer tools
+  - git

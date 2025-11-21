@@ -44,7 +44,7 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
     Returns
     -------
     dict[str, Any]
-        ODC product template for the product wqs_annual_v1 product.
+        ODC product template for the product wq_annual_v1 product.
     """
     all_tile_geotifs = find_geotiff_files(tile_directory)
 
@@ -83,7 +83,6 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
 
     measurements = sorted(measurements, key=lambda x: x["name"])
     # Create the product config.
-    product_name = "wqs_annual"
     description = "DE Africa Water Quality Service annual water quality variables at 10m resolution - version 1."
     metadata_type = "eo3"
     license = "CC-BY-4.0"
@@ -100,7 +99,7 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
         measurements=measurements,
     )
 
-    output_yaml = "wqs_annual.odc-product.yaml"
+    output_yaml = "wq_annual.odc-product.yaml"
 
     fs = get_filesystem(output_yaml, anon=False)
     with fs.open(output_yaml, "w") as stream:

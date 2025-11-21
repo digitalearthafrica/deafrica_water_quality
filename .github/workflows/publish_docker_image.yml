@@ -1,10 +1,10 @@
-name : Build and Push Image
+name: Build and Push Image
 
 env:
-  IMAGE_NAME: maritimleila/deafrica-water-quality
+  IMAGE_NAME: digitalearthafrica/deafrica-water-quality
 
 on:
-  workflow_dispatch:  # This makes it triggerable only manually
+  workflow_dispatch: # This makes it triggerable only manually
 
 jobs:
   push-if-main:
@@ -27,10 +27,10 @@ jobs:
         with:
           username: ${{ secrets.DEAFRICA_DOCKER_USERNAME }}
           password: ${{ secrets.DEAFRICA_DOCKER_PASSWORD }}
-        
+
       - name: Get version number for tagging the image
         run: |
-          echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -40,8 +40,3 @@ jobs:
           build-args: BUILD_ENV=prod
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
-
-
-
-          
-
