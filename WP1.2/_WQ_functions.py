@@ -29,12 +29,12 @@ def run_OWT(ds,verbose=False):
                           agm=True,
                           test=False, 
                           verbose=verbose) 
-                varname = instrument+'_agm_owt'
-                if varname in ds.data_vars:
-                    ds[varname] = xr.where(~np.isnan(OWT_data),OWT_data,ds[varname])
-                else : 
-                    ds[varname] = OWT_data
-                del OWT_data
+            varname = instrument+'_agm_owt'
+            if varname in ds.data_vars:
+                ds[varname] = xr.where(~np.isnan(OWT_data),OWT_data,ds[varname])
+            else : 
+                ds[varname] = OWT_data
+            del OWT_data
     silent  = gc.collect()
     return(ds)
 
@@ -1054,8 +1054,31 @@ def hue_calculation(dataset,instrument='',test=False,verbose=False) :
     # ---- note the 'arctan2' function, and that x and y are switched compared to expectations
     
     return(Cdata.hue)
+
+def geomedian_hue (ds,water_mask,verbose=False,test=False):
+    # --- revised ,tidier , and without th bug ... I think -- a function to calculate the hue value of the geomedian, allowing for the possibility of multiple sensors at each time point
+    # --- first calculate the hue  for each instrument
+    # --- mask is ignored.
+    ds['agm_hue'] = ('time','x','y'), np.zeros((ds.sizes['time'],ds.sizes['x'],ds.sizes['y']))
+    count         = np.zeros((ds.sizes['time'],ds.sizes['y'],ds.sizes['x']))
+
+    for instr in ['oli','msi','tm'] :
+        instr_agm = instr+'_agm'
+        if instr_agm in ds.data_vars:
+            hue_data = hue_calculation(ds,instr_agm,test=test,verbose=verbose)
+            ds[instr_agm+'_hue'] = ('time','y','x'),hue_data.data
+
+            ds['agm_hue'] = ds['agm_hue'] + \
+            (
+                        xr.where(~np.isnan(ds[instr+'_agm_hue'])  , ds[instr+'_agm_hue'],0) \
+                      * xr.where(~np.isnan(ds[instr+'_agm_hue']), ds[instr+'_agm_count'],0) \
+            ) 
+            count = count + xr.where(~np.isnan(ds[instr+'_agm_hue']), ds[instr+'_agm_count'],0)
+    ds['agm_hue'] = (ds['agm_hue'] / count).where(water_mask)
+    return(ds)
+
     
-def geomedian_hue (ds_annual,water_mask,verbose=False,test=False):
+def geomedian_hue_old (ds_annual,water_mask,verbose=False,test=False):
     # --- a function to calculate the hue value of the geomedian, allowing for the possibility of multiple sensors at each time point
     # (band one is missing from the oli agm, but perhaps we will be able to do without it)
     # To combine the hue from multiple sensors we take a weighted mean. 
@@ -1066,7 +1089,8 @@ def geomedian_hue (ds_annual,water_mask,verbose=False,test=False):
 
             # --- calculate the HUE for this sensor
             hue_data = hue_calculation(ds_annual,inst_agm,test=test,verbose=verbose)
-            
+
+    
             # --- set nans to zero, and also in the agm_count variable
             ds_annual[inst_agm+'_count'] = xr.where(~np.isnan(ds_annual[inst_agm+'_count']),ds_annual[inst_agm+'_count'],0)
             #negate the counts where there is no data produced 
