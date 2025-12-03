@@ -29,16 +29,14 @@ DP_ADJUST = {
 
 
 def R_correction(
-    ds: Dataset,
-    instruments_to_use: dict[str, dict[str, bool]],
+    ds: xr.Dataset,
+    water_mask: xr.DataArray,
+    instrument: str,
     drop: bool = False,
-) -> Dataset:
+) -> xr.Dataset:
     """
     Applies atmospheric dark pixel Rayleigh correction (R) correction
     to specified remote sensing bands within an xarray Dataset.
-
-    This function iterates through defined sensors and, if enabled,
-    performs a dark pixel subtraction.
 
     Parameters
     ----------
@@ -46,9 +44,11 @@ def R_correction(
         An xarray Dataset containing remote sensing bands
         (e.g., 'msi04_agm', 'oli07_agm') and 'water_mask' for
         water masking.
-    instruments_to_use : dict[str, dict[str, bool]]
-        A dictionary of the instruments used to get the remote sensing
-        bands.
+    water_mask : xr.DataArray
+        Water mask to apply for masking non-water pixels, where 1
+        indicates water.
+    instrument : str
+        The instrument name indicating which set of bands to correct.
     drop : bool, optional
         If True, the original uncorrected bands will be dropped from the
         Dataset after correction, by default False.
@@ -59,74 +59,101 @@ def R_correction(
         added. Each corrected band will have its original name appended
         with 'r' (e.g., 'msi04_agm' becomes 'msi04_agmr').
     """
+    if instrument.endswith("_agm"):
+        inst = instrument.split("_")[0]
+        ref_var = DP_ADJUST[inst]["ref_var"] + "_agm"
+        target_vars = [var + "_agm" for var in DP_ADJUST[inst]["var_list"]]
+    else:
+        inst = instrument
+        ref_var = DP_ADJUST[inst]["ref_var"]
+        target_vars = DP_ADJUST[inst]["var_list"]
+
+    for target_var in target_vars:
+        if target_var not in list(ds.data_vars):
+            error = ValueError(
+                f"Variable {target_var} expected but not found in the "
+                f"dataset - (non-fatal error) for instrument {instrument}",
+            )
+            log.warning(error)
+            continue
+        else:
+            new_var = f"{target_var}r"
+            ds[new_var] = xr.where(
+                water_mask == 1,
+                xr.where(
+                    ds[target_var] > ds[ref_var],
+                    ds[target_var] - ds[ref_var],
+                    xr.where(ds[target_var] > 0, ds[target_var], np.nan),
+                ),
+                ds[target_var],
+            )
+            if drop:
+                ds = ds.drop_vars(target_var)
+                ds = ds.rename({new_var: target_var})
+    return ds
+
+
+def apply_R_correction(
+    instrument_data: dict[str, xr.Dataset],
+    water_mask: xr.DataArray,
+    compute: bool = False,
+    drop: bool = True,
+) -> dict[str, xr.Dataset]:
+    """
+    Wrapper function to apply Rayleigh correction across
+    multiple instruments
+
+    Parameters
+    ----------
+    instrument_data : dict[str, xr.Dataset]
+        A dictionary mapping instruments to the xr.Dataset of the
+        loaded datacube datasets available for that instrument.
+    water_mask : xr.DataArray
+        Water mask to apply for masking non-water pixels, where 1
+        indicates water.
+    drop : bool, optional
+        If True, the original uncorrected bands will be dropped from the
+        Dataset after correction, by default False.
+    compute : bool
+        Whether to compute the dask arrays immediately, by default False.
+        Set to False to keep datasets lazy for memory efficiency.
+
+    Returns
+    -------
+    instrument_data : dict[str, xr.Dataset]
+        A dictionary mapping instruments to the xr.Dataset of the loaded datacube datasets available for that
+        instrument, with new atmospherically corrected bands
+        added. Each corrected band will have its original name appended
+        with 'r' (e.g., 'msi04_agm' becomes 'msi04_agmr').
+    """
     # Get the instruments in the dataset that the pixel correction
     # will be applied.
 
-    for inst in instruments_to_use:
-        usage = instruments_to_use[inst]["use"]
-        if usage is True:
-            # Get the pixel correction parameters for
-            # the instrument.
-            if "agm" in inst:
-                inst_prefix = inst.split("_")[0]
-                if inst_prefix not in DP_ADJUST.keys():
-                    continue
-                else:
-                    ref_var = f"{DP_ADJUST[inst_prefix]['ref_var']}_agm"
-                    target_vars = [
-                        f"{i}_agm" for i in DP_ADJUST[inst_prefix]["var_list"]
-                    ]
-            else:
-                if inst not in DP_ADJUST.keys():
-                    continue
-                else:
-                    ref_var = DP_ADJUST[inst]["ref_var"]
-                    target_vars = DP_ADJUST[inst]["var_list"]
-
-            log.info(
-                f"Performing dark pixel correction for instrument {inst} ..."
+    for instrument, ds in instrument_data.items():
+        if instrument not in [
+            "msi",
+            "msi_agm",
+            "oli",
+            "oli_agm",
+            "tm",
+            "tm_agm",
+        ]:
+            error = (
+                f"R correction not implemented for instrument: {instrument}"
             )
-            if ref_var not in ds.data_vars:
-                raise ValueError(
-                    f"Variable {ref_var} expected  but not found in the "
-                    f"dataset - correction FAILING for instrument {inst}",
-                )
-            else:
-                for target_var in target_vars:
-                    if target_var not in ds.data_vars:
-                        log.error(
-                            ValueError(
-                                f"Variable {target_var} expected  but not found in the "
-                                f"dataset - (non-fatal error) for instrument {inst}",
-                            )
-                        )
-                    else:
-                        new_var = f"{target_var}r"
-                        # Prevent overwriting.
-                        if new_var in ds.data_vars:
-                            ds = ds.drop_vars(new_var)
+            log.warning(error)
+            continue
+        else:
+            log.info(f"Applying R correction for instrument: {instrument}")
+            instrument_data[instrument] = R_correction(
+                ds=ds, water_mask=water_mask, instrument=instrument, drop=drop
+            )
+        if compute:
+            log.info(
+                "\tComputing Rayleigh corrected data for "
+                f"instrument {instrument} ..."
+            )
+            instrument_data[instrument] = instrument_data[instrument].compute()
 
-                        # Initialize new_var with zeros and the same
-                        # dimensions as ref_var
-                        ds[new_var] = ds[ref_var] * 0.0
-
-                        # Calculate a modified value:
-                        ds[new_var] = xr.where(
-                            ds[target_var] > 0,
-                            xr.where(
-                                ds[target_var] > ds[ref_var],
-                                ds[target_var] - ds[ref_var],
-                                ds[target_var],
-                            ),
-                            np.nan,
-                        )
-                        ds[new_var] = ds[new_var].where(
-                            ds["water_mask"] == 1, ds[target_var]
-                        )
-
-                        if drop:
-                            # Rename the modified variable to replace the original
-                            ds = ds.drop_vars(target_var)
-                            ds = ds.rename({new_var: target_var})
-
-    return ds
+        log.info(f"R correction complete for {instrument}.")
+    return instrument_data

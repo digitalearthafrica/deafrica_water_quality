@@ -6,6 +6,76 @@ import matplotlib.pyplot as plt
 import gc   # garbage collection
 import pandas as pd
 
+# --- Add boolean variables that indicate which instruments are available in the geomedian data series for a given year. For earlier years tm is available. 
+# --- assume that the 'smad' will always be available and use this as an indicator 
+# --- If the instrument is never available during the time series, the boolean variable is not added.
+def detect_geomedian_instruments (ds_annual):
+    for inst in 'oli_agm','tm_agm','msi_agm':
+        if inst+'_smad' in ds_annual.data_vars:
+            ds_annual[inst] = ('time'), np.zeros(ds_annual.sizes['time'],dtype ='bool')
+            ds_annual[inst] = ~np.isnan(ds_annual[inst+'_smad'].mean(dim=('x','y')))
+    return ds_annual
+
+
+def run_OWT(ds,verbose=False):
+    OWT_vector_data = create_OWT_response_models(agm=True)
+    suffix = '_agm'
+    for instrument in 'msi','oli','tm':
+        if instrument+suffix in ds.data_vars:
+            OWT_vectors = OWT_vector_data[instrument]    # the spectral reflectances specific to this sensor
+            OWT_data    = OWT(ds.where(ds.clearwater==1),
+                          instrument,
+                          OWT_vectors,
+                          agm=True,
+                          test=False, 
+                          verbose=verbose) 
+            varname = instrument+'_agm_owt'
+            if varname in ds.data_vars:
+                ds[varname] = xr.where(~np.isnan(OWT_data),OWT_data,ds[varname])
+            else : 
+                ds[varname] = OWT_data
+            del OWT_data
+    silent  = gc.collect()
+    return(ds)
+
+
+# This function calculates a running 5-year wofs frequency on the dataset
+# --- The start and end values are calculated on the nearest 5 year window; otherwise the centre of the window
+# --- *** Change needed to put the window as the interval leding upto the year in question to ensure future compatibility futher processing ** 
+# --- If the duration of the geomedian series is less than 5 years the frequency is calculated on that shorter time series. 
+# ! assuming the shape of the array is time,y,x and using array-based indexing rather than dataset labels.
+
+def WOFS_5_year_frequency(ds, test = True):
+    clearcount = np.zeros(ds.wofs_ann_freq.shape,dtype = 'int')
+    wetcount   = np.zeros(ds.wofs_ann_freq.shape,dtype = 'int')
+    freq       = np.zeros(ds.wofs_ann_freq.shape,dtype = 'float')
+    
+    length = ds.time.size
+    window = 5
+    # --- I am sure there is a simpler formulation, but this works! ---
+    for i in np.arange(0,length):
+        start = np.max([0,i-int(window/2)])
+        end   = np.min([length,start+5])    
+        start = np.min([start,length-5])
+        start = np.max([start,0])
+        if test: print(i,start,end)
+    
+        clearcount[i,:,:] = ds.wofs_ann_clearcount[start:end,:,:].sum(dim=('time'))
+        
+        wetcount[i,:,:]   = ds.wofs_ann_wetcount[start:end,:,:].sum(dim=('time'))
+        if test : print(start,end,clearcount[i,:,:].sum(),clearcount.sum(),wetcount[i,:,:].sum(),wetcount.sum())
+
+    np.divide(wetcount, clearcount, out = freq,where=(clearcount>0))
+
+    if test : print(np.nanmean(freq),np.sum(wetcount), np.sum(clearcount))
+    ds['wofs_5yr_freq']             = ds.wofs_ann_freq.dims, freq 
+    ds['wofs_5yr_clearcount']       = ds.wofs_ann_freq.dims, clearcount 
+    ds['wofs_5yr_wetcount']         = ds.wofs_ann_freq.dims, wetcount 
+    if test : print(ds.wofs_5yr_freq.mean().item(),np.nanmean(freq),ds.wofs_5yr_wetcount.sum().item(),np.sum(wetcount),ds.wofs_5yr_clearcount.sum().item(), np.sum(clearcount))
+    
+    return(ds)
+    
+
 
 #----------------------------------------------------------------------
 #  A function to calculate the Trophic State Index (TSI) from ChlA estimates. 
@@ -608,7 +678,7 @@ def create_OWT_response_models(path='/home/jovyan/dev/deafrica_water_quality/ref
         inst_OWT.to_csv(sensor+'_OWT_vectors.csv')
     return(data)
     
-def OWT (ds,instrument,OWT_vectors,agm=False,dp_corrected = False, verbose=True,test=True):
+def OWT (ds,instrument,OWT_vectors,agm=False,dp_corrected = False, verbose=True,test=False):
     # --- this version uses a long-hand approch to calculating the dot product. Inelegant but simple.
     # --- identify the instrument bands that are relevant and in the dataset
     resample_rate=1  #legacy stuff
@@ -1306,13 +1376,13 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'Lake_vic_west':       {'run':True, "xyt" :{"x": ( 32.5, 32.78),       "y" : ( -2.65,-2.3),      "time": (year1,year2)  },"desc": ""          },
         'Lake_vic_east':       {'run':True, "xyt" :{"x": ( 32.78, 33.3),       "y" : ( -2.65,-2.3),      "time": (year1,year2)  },"desc": ""          },
         'Lake_vic_test':       {'run':True, "xyt" :{"x": ( 32.78, 33.13),       "y" : ( -1.95,-1.6),      "time": (year1,year2)  },"desc": "Lake Victoria cloud affected"},
-        'Lake_vic_turbid':     {'run':True, "xyt" :{"x": ( 34.60, 34.70),       "y" : ( -.25,-.20),      "time": (year1,year2)  },"desc": "Lake Victoria turbid area in NE"},
+        'Lake_vic_turbid':     {'run':False, "xyt" :{"x": ( 34.60, 34.70),       "y" : ( -.25,-.20),      "time": (year1,year2)  },"desc": "Lake Victoria turbid area in NE"},
         'Lake_vic_algae':      {'run':True, "xyt" :{"x": ( 34.62, 34.78),       "y" : ( -.18,-.08),      "time": (year1,year2)  },"desc": "Lake Victoria Water Hyacinth affected area in NE, port Kisumu"},
         'Lake_vic_clear':      {'run':True, "xyt" :{"x": ( 34.00, 34.10),       "y" : ( -.32,-.27),      "time": (year1,year2)  },"desc": "Lake Victoria clear water area"},
         'Lake_Victoria_NE' :   {'run':True, "xyt" :{'x': (33.5,34.8),         'y': (-.6,0.4),            'time': (year1,year2)  },"desc": 'Lake Victoria NE'},
         'Morocco':             {'run':True, "xyt" :{"x": (-7.45, -7.65),       "y" : (  32.4,32.5),      "time": (year1,year2)  },"desc": "Barrage Al Massira"          },
         'Thewaterskool_SA':    {'run':True, "xyt" :{"x": (19.1, 19.3),         "y" : ( -34.1  , -33.98), "time": (year1,year2)  },"desc": ""          },
-        'SA_dam':              {'run':True, "xyt" :{"x": ( 19.35,   19.47),    "y" : ( -33.800, -33.650),"time": (year1,year2)  },"desc": ""          },
+        'SA_dam':              {'run':False, "xyt" :{"x": ( 19.35,   19.47),    "y" : ( -33.800, -33.650),"time": (year1,year2)  },"desc": ""          },
         'SA_dam_north':        {'run':True, "xyt" :{"x": ( 19.42,   19.44),    "y" : ( -33.73 , -33.699),"time": (year1,year2)  },"desc": ""          },
         'SA_dam_south':        {'run':True, "xyt" :{"x": ( 19.415,  19.431),   "y" : ( -33.781, -33.772),"time": (year1,year2)  },"desc": ""          },
         'Ethiopia1of2':        {'run':True, "xyt" :{"x": ( 38.35,   38.65),    "y" : (   7.37 ,   7.55), "time": (year1,year2)  },"desc": "Ethiopia, Shala Hayk'"          },
@@ -1337,8 +1407,8 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'lake_vic_all':        {'run':False, "xyt" :{"x": ( 31.500 , 34.86),   "y" : ( -3.00, +0.50 )    ,"time": (year1,year2)  },"desc": "Lake Victoria"          },
         'lake_elmenteita':     {'run':True, "xyt" :{"x": ( 36.200 , 36.27),   "y" : ( -0.485, -0.390 )  ,"time": (year1,year2)  },"desc": "Lake Elmenteita"          },
         'mombasa':             {'run':True, "xyt" :{"x": ( 39.500 , 39.72),   "y" : ( -4.10 , -3.97  )  ,"time": (year1,year2)  },"desc": "Mombasa"          },
-        'Mauritania_2':        {'run':True, "xyt" :{"x": ( -15.63 , -15.54),   "y" : ( 16.605 , 16.69  ),"time": (year1,year2)},"desc": "Mauritania Wetland"          },
-        'Mauritania_1':        {'run':True, "xyt" :{"x": ( -16.37 , -16.32),   "y" : ( 16.41 , 16.45  ) ,"time": (year1,year2)},"desc": "Mauritania Wetland"          },
+        'Mauritania_2':        {'run':False, "xyt" :{"x": ( -15.63 , -15.54),   "y" : ( 16.605 , 16.69  ),"time": (year1,year2)},"desc": "Mauritania Wetland"          },
+        'Mauritania_1':        {'run':False, "xyt" :{"x": ( -16.37 , -16.32),   "y" : ( 16.41 , 16.45  ) ,"time": (year1,year2)},"desc": "Mauritania Wetland"          },
         'Lake_Nasser_nth':     {'run':True, "xyt" :{"x": (  32.87 ,  32.95),   "y" : ( 23.69 , 23.72  ) ,"time": (year1,year2)},"desc": "Lake Nasser clear water"       },
         'Lake_Nasser_sth':     {'run':True, "xyt" :{"x": (  31.20 ,  31.30),   "y" : ( 21.795, 21.845  ) ,"time": (year1,year2)},"desc": "Lake Nasser turbid water"      },
         'Tana_Hayk'      :     {'run':True, "xyt" :{"x": (  36.95 ,  37.65),   "y" : ( 11.56 , 12.33   ) ,"time": (year1,year2)},"desc": "T'ana Hayk', northern Ethiopia"},
@@ -1348,16 +1418,22 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'Barrage Joumine':     {'run':True, "xyt" :{"x": (  09.53 ,  09.62),   "y" : ( 36.952,  37.00  ) ,"time": (year1,year2)},"desc": "Joumine Dam,Tunisia"},
         'Tunisia_Dam'    :     {'run':True, "xyt" :{"x": (  08.53 ,  08.56),   "y" : ( 36.685,  36.75  ) ,"time": (year1,year2)},"desc": "Tunisia"},
         'Lake_Ngami'     :     {'run':True, "xyt" :{"x": (  22.55 ,  22.89),   "y" : ( - 20.6, -20.37  ) ,"time": (year1,year2)},"desc": "Botswana"},
-        'Lake_Chilwa'    :     {'run':True, "xyt" :{"x": (  35.5 ,  35.9),   "y" : ( - 15.6, -14.90  ) ,"time": (year1,year2)},"desc": "Malawi - Lake Chilwa"},
-        'Lake_Malombe'   :     {'run':True, "xyt" :{"x": (  35.15 ,  35.35),   "y" : ( - 14.8, -14.50  ) ,"time": (year1,year2)},"desc": "Malawi - Lake Malombe"},
-        'Lake_Piti'      :     {'run':True, "xyt" :{"x": (  32.85 ,  32.90),   "y" : ( - 26.6, -26.50  ) ,"time": (year1,year2)},"desc": "Mozambique - Lake Piti"},
-        'Maputo_reserve' :     {'run':True, "xyt" :{"x": (  32.79 ,  32.83),   "y" : ( - 26.55, -26.50  ) ,"time": (year1,year2)},"desc": "Mozambique - Maputo reserve"},
-        'Indian_Ocean'   :     {'run':True, "xyt" :{"x": (  57.75 ,  57.80),   "y" : ( - 20.5 , -20.45  ) ,"time": (year1,year2)},"desc": "Mauritius - Oceanic waters"},
-        'Mare_Vacoas'    :     {'run':True, "xyt" :{"x": (  57.48 ,  57.52),   "y" : ( - 20.38 , -20.36  ) ,"time": (year1,year2)},"desc": "Mauritius - Mare aux Vacoas"},
-        'Naute'          :     {'run':True, "xyt" :{"x": (  17.93 ,  18.05),   "y" : ( - 26.97 , -26.92  ) ,"time": (year1,year2)},"desc": "Namibia - Naute reserve"},
-        'Lake_Turkana'   :     {'run':True, "xyt" :{"x": (  35.80 ,  36.72),   "y" : (    2.38 ,   4.79  ) ,"time": (year1,year2)},"desc": "Kenya -- Lake Turkana"},
-        'Haartbeesport_dam':   {'run':True, "xyt" :{"x": (  27.7972, 27.91117), "y" : (-25.7761,-25.7275) ,"time": (year1,year2)},"desc": "Haartbeesport Dam  -- South Africa"},
-        'Lake Bogoria'   :     {'run':True, "xyt" :{"x": (  36.058, 36.133),   "y" : (  0.1791 ,0.3534) ,"time": (year1,year2)},"desc": "Lake Bogoria -- Tanzania"},
+        'Lake_Chilwa'    :  {'run':True, "xyt" :{"x": (  35.5 ,  35.9),   "y" : ( - 15.6, -14.90     ) ,"time": (year1,year2)  },"desc": "Malawi - Lake Chilwa"},
+        'Lake_Malombe'   :  {'run':True, "xyt" :{"x": (  35.15 ,  35.35),   "y" : ( - 14.8, -14.50   ) ,"time": (year1,year2)  },"desc": "Malawi - Lake Malombe"},
+        'Lake_Piti'      :  {'run':True, "xyt" :{"x": (  32.85 ,  32.90),   "y" : ( - 26.6, -26.50   ) ,"time": (year1,year2)  },"desc": "Mozambique - Lake Piti"},
+        'Maputo_reserve' :  {'run':True, "xyt" :{"x": (  32.79 ,  32.83),   "y" : ( - 26.55, -26.50  ) ,"time": (year1,year2)  },"desc": "Mozambique - Maputo reserve"},
+        'Indian_Ocean'   :  {'run':True, "xyt" :{"x": (  57.75 ,  57.80),   "y" : ( - 20.5 , -20.45  ) ,"time": (year1,year2)  },"desc": "Mauritius - Oceanic waters"},
+        'Mare_Vacoas'    :  {'run':True, "xyt" :{"x": (  57.48 ,  57.52),   "y" : ( - 20.38 , -20.36 ) ,"time": (year1,year2)  },"desc": "Mauritius - Mare aux Vacoas"},
+        'Naute'          :  {'run':True, "xyt" :{"x": (  17.93 ,  18.05),   "y" : ( - 26.97 , -26.92 ) ,"time": (year1,year2)  },"desc": "Namibia - Naute reserve"},
+        'Lake_Turkana'   :  {'run':True, "xyt" :{"x": (  35.80 ,  36.72),   "y" : (    2.38 ,   4.79 ) ,"time": (year1,year2)  },"desc": "Kenya -- Lake Turkana"},
+        'Haartbeesport_dam':{'run':True, "xyt" :{"x": (  27.7972, 27.91117), "y": (-25.7761,-25.7275 ) ,"time": (year1,year2)  },"desc": "Haartbeesport Dam  -- South Africa"},
+        'Lake Bogoria'   :  {'run':True, "xyt" :{"x": (  36.058, 36.133),   "y" : (  0.1791 ,0.3534  ) ,"time": (year1,year2)  },"desc": "Lake Bogoria -- Tanzania"},
+        'HC_1'           :  {'run':False, "xyt" :{"x": (30.50, 30.70    ),  "y" : ( -8.00 ,-7.8      ) ,"time": (year1,year2)  },"desc": "Lake Tanganyika -- Tanzania, low turbidity"},
+        'HC_2'           :  {'run':False, "xyt" :{"x": (32.00, 32.20    ),  "y" : ( -8.00 ,-7.80     ) ,"time": (year1,year2)  },"desc": "Lake Rukwa -- Tanzania, very high turbidity"},
+        'HC_3'           :  {'run':False, "xyt" :{"x": (32.61, 33.52    ),  "y" : ( -1.469 , -1.00   ) ,"time": (year1,year2)  },"desc": "lake Victoria lake stations -- TZA 32,37,38"},
+        'HC_4'           :  {'run':False, "xyt" :{"x": (32.85, 32.87    ),  "y" : ( -2.61 , -2.57    ) ,"time": (year1,year2)  },"desc": "lake Victoria lake stations -- TZA 15 -2.5908	32.86835"},
+        'HC_5'           :  {'run':False, "xyt" :{"x": (-6.7502, -6.7473),  "y" : ( 33.9308 , 33.9347) ,"time": (year1,year2)  },"desc": "Morocco near Rabbat -- MAR 00002  -6.75 33.93333 "},
+        'HC_6'           :  {'run':False, "xyt" :{"x": (-7.6360, -7.6308),  "y" : ( 32.4727 , 33.4758) ,"time": (year1,year2)  },"desc": "Morocco -- MAR 00003  -6.75 32.93333 "},
         }
 
      #Manyara is a shallow alkaline lake 10 feet deep. https://wildlifesafaritanzania.com/facts-about-lake-manyara-national-park/

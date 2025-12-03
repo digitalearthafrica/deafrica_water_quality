@@ -1,7 +1,7 @@
 name: Build and Push Image
 
 env:
-  IMAGE_NAME: digitalearthafrica/deafrica-water-quality
+  IMAGE_NAME: victorianeema/deafrica-water-quality
 
 on:
   workflow_dispatch: # This makes it triggerable only manually

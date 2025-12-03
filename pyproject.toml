@@ -81,7 +81,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-water_quality = ["data/*.parquet"]
+water_quality = ["data/*"]
 
 [tool.ruff]
 line-length = 79

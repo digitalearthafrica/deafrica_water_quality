@@ -60,3 +60,5 @@ dependencies:
   - compilers
   # developer tools
   - git
+  - curl
+  - unzip

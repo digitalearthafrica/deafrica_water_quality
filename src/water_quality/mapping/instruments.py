@@ -62,9 +62,9 @@ INSTRUMENTS_MEASUREMENTS = {
         "SR_B5": {"varname": ("oli05_agm"), "parameters": (True, "850-880")},
         "SR_B6": {"varname": ("oli06_agm"), "parameters": (True, "1570-1650")},
         "SR_B7": {"varname": ("oli07_agm"), "parameters": (True, "2110-2290")},
-        "smad": {"varname": ("oli_agm_smad"), "parameters": (True,)},
-        "emad": {"varname": ("oli_agm_emad"), "parameters": (True,)},
-        "bcmad": {"varname": ("oli_agm_bcmad"), "parameters": (True,)},
+        "smad": {"varname": ("oli_agm_smad"), "parameters": (False,)},
+        "emad": {"varname": ("oli_agm_emad"), "parameters": (False,)},
+        "bcmad": {"varname": ("oli_agm_bcmad"), "parameters": (False,)},
         "count": {"varname": ("oli_agm_count"), "parameters": (True,)},
     },
     "oli": {
@@ -112,9 +112,9 @@ INSTRUMENTS_MEASUREMENTS = {
                 "uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN",
             ),
         },
-        "smad": {"varname": ("msi_agm_smad"), "parameters": (True,)},
-        "emad": {"varname": ("msi_agm_emad"), "parameters": (True,)},
-        "bcmad": {"varname": ("msi_agm_bcmad"), "parameters": (True,)},
+        "smad": {"varname": ("msi_agm_smad"), "parameters": (False,)},
+        "emad": {"varname": ("msi_agm_emad"), "parameters": (False,)},
+        "bcmad": {"varname": ("msi_agm_bcmad"), "parameters": (False,)},
         "count": {"varname": ("msi_agm_count"), "parameters": (True,)},
     },
     "msi": {
@@ -204,9 +204,9 @@ INSTRUMENTS_MEASUREMENTS = {
             "varname": ("tm07_agm"),
             "parameters": (True, "swir2 2080-2350"),
         },
-        "smad": {"varname": ("tm_agm_smad"), "parameters": (True,)},
-        "emad": {"varname": ("tm_agm_emad"), "parameters": (True,)},
-        "bcmad": {"varname": ("tm_agm_bcmad"), "parameters": (True,)},
+        "smad": {"varname": ("tm_agm_smad"), "parameters": (False,)},
+        "emad": {"varname": ("tm_agm_emad"), "parameters": (False,)},
+        "bcmad": {"varname": ("tm_agm_bcmad"), "parameters": (False,)},
         "count": {"varname": ("tm_agm_count"), "parameters": (True,)},
     },
     "tm": {
@@ -350,7 +350,7 @@ def check_instrument_dates(
                     raise ValueError(error)
                 else:
                     valid_instruments_to_use[instrument_name] = {"use": False}
-                    log.error(error, "\nInstrument use set to False")
+                    log.error(f"{error} \nInstrument use set to False")
             else:
                 instrument_data_start_date = validate_start_date(
                     str(min(instruments_data_date_range))
@@ -378,7 +378,7 @@ def check_instrument_dates(
                         valid_instruments_to_use[instrument_name] = {
                             "use": False
                         }
-                        log.error(error, "\nInstrument use set to False")
+                        log.error(f"{error} \nInstrument use set to False")
         else:
             valid_instruments_to_use[instrument_name] = usage
     return valid_instruments_to_use

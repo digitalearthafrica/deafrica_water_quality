@@ -79,3 +79,50 @@ def split_tasks(
             return []
         else:
             return task_chunks[worker_idx]
+
+
+def filter_tasks_by_task_id(
+    all_task_ids: list[tuple[str, int, int]], task_ids: str | list[str]
+) -> list[tuple[str, int, int]]:
+    """Filter tasks by task ID."""
+    if isinstance(task_ids, str):
+        task_filter = [parse_task_id(i.strip()) for i in task_ids.split(",")]
+    else:
+        task_filter = [parse_task_id(i) for i in task_ids]
+
+    filtered_tasks = list(set(task_filter).intersection(set(all_task_ids)))
+
+    return filtered_tasks
+
+
+def check_task_id_for_tile_id(task_id: str, tile_id: str) -> bool:
+    if set(tile_id).issubset(task_id):
+        if tile_id[-1] == task_id[-1]:
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+def filter_tasks_by_tile_id(
+    all_task_ids: list[tuple[str, int, int]], tile_ids: str | list[str]
+) -> list[tuple[str, int, int]]:
+    """Filter tasks by tile ID."""
+    if isinstance(tile_ids, str):
+        tile_filter = [
+            parse_region_code(i.strip()) for i in tile_ids.split(",")
+        ]
+    else:
+        tile_filter = [parse_region_code(i) for i in tile_ids]
+
+    filtered_tasks = list(
+        filter(
+            lambda task_id: any(
+                check_task_id_for_tile_id(task_id, tile_id)
+                for tile_id in tile_filter
+            ),
+            all_task_ids,
+        )
+    )
+    return filtered_tasks

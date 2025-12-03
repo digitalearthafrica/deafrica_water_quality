@@ -3,6 +3,7 @@ import sys
 import warnings
 
 import click
+import toolz
 
 from water_quality.io import (
     check_directory_exists,
@@ -58,12 +59,13 @@ def cli(
     log = setup_logging()
 
     all_geotiffs = find_geotiff_files(datasets_dir)
-    all_dataset_paths = list(set(get_parent_dir(i) for i in all_geotiffs))
-    all_dataset_paths.sort()
-    log.info(f"Found {len(all_dataset_paths)} datasets")
+    datasets = toolz.groupby(lambda i: get_parent_dir(i), all_geotiffs)
+    dataset_paths = list(datasets.keys())
+    dataset_paths.sort()
+    log.info(f"Found {len(dataset_paths)} datasets")
 
     datasets_to_run = split_tasks(
-        all_dataset_paths, max_parallel_steps, worker_idx
+        dataset_paths, max_parallel_steps, worker_idx
     )
 
     if not datasets_to_run:
@@ -88,12 +90,14 @@ def cli(
             continue
         else:
             try:
+                measurement_paths = datasets[dataset_path]
+
                 # Generate STAC metadata
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=UserWarning)
                     log.info("Creating metadata STAC file ...")
-                    stac_file_url = prepare_dataset(
-                        dataset_path=dataset_path,
+                    stac_file_url = prepare_dataset(  # noqa: F841
+                        measurement_paths=measurement_paths,
                         source_datasets_uuids=None,
                     )
             except Exception as e:

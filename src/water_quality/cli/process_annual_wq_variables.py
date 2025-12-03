@@ -3,7 +3,6 @@ import json
 import os
 import sys
 import warnings
-from itertools import chain
 
 import click
 import numpy as np
@@ -17,31 +16,38 @@ from odc.stats.model import DateTimeRange
 
 from water_quality.io import (
     check_directory_exists,
-    check_file_exists,
     get_filesystem,
     get_parent_dir,
     get_wq_cog_url,
     get_wq_csv_url,
+    get_wq_dataset_path,
+    get_wq_stac_url,
+    is_s3_path,
     join_url,
 )
 from water_quality.logs import setup_logging
-from water_quality.mapping.algorithms import (
-    WQ_vars,
-    geomedian_FAI,
-    geomedian_NDVI,
-    normalise_and_stack_wq_vars,
-)
+from water_quality.mapping.algorithms import WQ_vars
+from water_quality.mapping.fai import geomedian_FAI
 from water_quality.mapping.hue import geomedian_hue
 from water_quality.mapping.instruments import (
     INSTRUMENTS_PRODUCTS,
     check_instrument_dates,
-    get_instruments_list,
 )
-from water_quality.mapping.load_data import build_wq_agm_dataset
-from water_quality.mapping.pixel_correction import R_correction
-from water_quality.mapping.water_detection import water_analysis
+from water_quality.mapping.load_data import load_annual_data
+from water_quality.mapping.ndvi import geomedian_NDVI
+from water_quality.mapping.optical_water_type import run_OWT
+from water_quality.mapping.pixel_correction import apply_R_correction
+from water_quality.mapping.water_detection import (
+    clear_water_mask,
+    five_year_water_mask,
+)
 from water_quality.metadata.prepare_metadata import prepare_dataset
-from water_quality.tasks import create_task_id, parse_task_id, split_tasks
+from water_quality.tasks import (
+    create_task_id,
+    filter_tasks_by_task_id,
+    filter_tasks_by_tile_id,
+    split_tasks,
+)
 
 
 def setup_dask_if_needed():
@@ -62,6 +68,12 @@ def setup_dask_if_needed():
     help="List of comma separated tasks in the format "
     "period/x{x:02d}/y{y:02d} to generate water quality variables for. "
     "For example `2015--P1Y/x200/y034,2015--P1Y/x178/y095,2015--P1Y/x199/y100`",
+)
+@click.option(
+    "--tiles",
+    help="List of comma separated tiles in the format "
+    "x{x:02d}/y{y:02d} to generate water quality variables for. "
+    "For example `x200/y034,x178/y095,x199/y100`",
 )
 @click.argument(
     "cache-file-path",
@@ -90,6 +102,7 @@ def setup_dask_if_needed():
 )
 def cli(
     tasks: str,
+    tiles: str,
     cache_file_path: str,
     output_directory: str,
     max_parallel_steps: int,
@@ -116,7 +129,16 @@ def cli(
     """
     log = setup_logging()
 
-    cache = dscache.open_ro(cache_file_path)
+    if is_s3_path(cache_file_path):
+        local_cache_file_path = "/tmp/cachedb.db"
+        fs = get_filesystem(cache_file_path, anon=False)
+        fs.get(cache_file_path, local_cache_file_path)
+        log.info(
+            f"Downloaded cache file from {cache_file_path} to {local_cache_file_path}"
+        )
+        cache = dscache.open_ro(local_cache_file_path)
+    else:
+        cache = dscache.open_ro(cache_file_path)
 
     # Load the configuration
     # This should have been validated during task generation.
@@ -130,7 +152,7 @@ def cli(
     product_version = config["product_version"]
     # Instruments to use should also have been validated
     # during task generation.
-    instruments_to_use = config["instruments_to_use"]
+    cfg_instruments_to_use = config["instruments_to_use"]
 
     # Grid properties
     grid_name = config["grid_name"]
@@ -143,28 +165,37 @@ def cli(
     # Load all tasks and split for this worker
     all_task_ids = sorted([i[0] for i in cache.tiles(grid_name)])
 
-    if tasks:
-        task_filter = [i.strip() for i in tasks.split(",")]
-        # "period/x{x:02d}/y{y:02d}" to (period, x, y)
-        task_filter = [parse_task_id(i) for i in task_filter]
-        found_tasks = list(set(task_filter).intersection(set(all_task_ids)))
-
-        if len(found_tasks) == 0:
-            log.error(
-                "No matching tasks found in the file database "
-                f"for the provided filter: {tasks}."
-            )
-            sys.exit(1)
-        else:
-            log.info(
-                f"Found {len(found_tasks)} matching tasks "
-                f"in the file database for the provided filter: {tasks}."
-            )
-        tasks_to_run = split_tasks(found_tasks, max_parallel_steps, worker_idx)
+    if tasks and tiles:
+        raise ValueError("Use either tasks or tiles, not both.")
     else:
-        tasks_to_run = split_tasks(
-            all_task_ids, max_parallel_steps, worker_idx
-        )
+        if tasks or tiles:
+            if tasks:
+                filtered_tasks = filter_tasks_by_task_id(
+                    all_task_ids=all_task_ids, task_ids=tasks
+                )
+                filter_str = tasks
+            else:
+                filtered_tasks = filter_tasks_by_tile_id(
+                    all_task_ids=all_task_ids, tile_ids=tiles
+                )
+                filter_str = tiles
+
+            if len(filtered_tasks) == 0:
+                error_msg = f"No matching tasks found in the file database for the provided filter: {filter_str}."
+                log.error(error_msg)
+                sys.exit(1)
+            else:
+                log.info(
+                    f"Found {len(filtered_tasks)} matching tasks "
+                    f"in the file database for the provided filter: {filter_str}."
+                )
+                tasks_to_run = split_tasks(
+                    filtered_tasks, max_parallel_steps, worker_idx
+                )
+        else:
+            tasks_to_run = split_tasks(
+                all_task_ids, max_parallel_steps, worker_idx
+            )
 
     if not tasks_to_run:
         log.warning(f"Worker {worker_idx} has no tasks to process. Exiting.")
@@ -188,209 +219,192 @@ def cli(
             temporal_range = DateTimeRange(temporal_id)
             start_date = temporal_range.start.strftime("%Y-%m-%d")
             end_date = temporal_range.end.strftime("%Y-%m-%d")
-            check_instrument_dates(
-                instruments_to_use, start_date, end_date, raise_errors=True
+            instruments_to_use = check_instrument_dates(  # noqa F841
+                cfg_instruments_to_use,
+                start_date,
+                end_date,
+                raise_errors=False,
             )
 
-            # Check if task already processed
-            if not overwrite:
-                output_csv_url = get_wq_csv_url(
+            expected_stac_path = get_wq_stac_url(
+                get_wq_dataset_path(
                     output_directory=output_directory,
                     tile_id=tile_id,
                     temporal_id=temporal_id,
                     product_name=product_name,
                     product_version=product_version,
                 )
-                if check_file_exists(output_csv_url):
-                    log.info(
-                        f"Task {task_id_str} already processed. Skipping."
-                    )
-                    continue
+            )
+            exists = check_directory_exists(expected_stac_path)
+            if exists and not overwrite:
+                log.info(
+                    f"STAC file already exists for task {task_id_str} at "
+                    f"{expected_stac_path} and overwrite is False. "
+                    "Skipping processing for this task."
+                )
+                continue
 
             dss = list(cache.stream_grid_tile(task_id, grid_name))
             dss = toolz.groupby(
                 lambda ds: input_products[ds.product.name], dss
             )
-            # Setup Dask if needed
-            client = setup_dask_if_needed()
-
-            # Load data
             tile_geobox = grid_spec.tile_geobox(tile_index=tile_id)
-            ds = build_wq_agm_dataset(
-                datasets=dss, tile_geobox=tile_geobox, dc=dc
+
+            # Load annual data for all instruments
+            annual_data = load_annual_data(
+                dss=dss,
+                tile_geobox=tile_geobox,
+                compute=False,
+                dc=dc,
             )
 
-            # Close Dask client if it was created
-            if client is not None:
-                client.close()
+            wq_ds = {}
 
-            ds = water_analysis(
-                ds,
-                water_frequency_threshold=WFTH,
-            )
-
-            # Floating Algea Index
-            ds = geomedian_FAI(ds)
-
-            # NDVI
-            ds = geomedian_NDVI(ds)
-
-            # Set the clear water mask
-            ds["clearwater"] = xr.where(
-                np.isnan(ds.agm_fai),
-                xr.where(ds.water_mask == 1, True, False),
-                False,
-            )
-
-            # Reflectance correction
-            ds = R_correction(ds, instruments_to_use, drop=False)
-
-            # Hue calculation
-            ds = geomedian_hue(ds)
-
-            # OWT calculation
-            # Turned off OWT until PR#25 is merged
-            # TODO: turn on once PR#25 is merged
-            # OWT calculation
-            # ds = run_OWT(ds)
-
-            # Run WQ algorithms
-            log.info("Applying the WQ algorithms to water areas.")
-            instruments_list = get_instruments_list(instruments_to_use)
-            ds_out, wq_vars_df = WQ_vars(
-                ds,
-                instruments_list=instruments_list,
-                stack_wq_vars=False,
-            )
-
-            ds_out = normalise_and_stack_wq_vars(
-                ds=ds_out,
-                wq_vars_table=wq_vars_df,
-                water_frequency_threshold=0,
+            # Generate 5 year water mask
+            wq_ds["water_mask"] = five_year_water_mask(
+                annual_data=annual_data,
+                compute=True,
             )
             gc.collect()
 
-            # Get list of WQ variables
-            wq_vars_list = list(
-                chain.from_iterable(
-                    [
-                        wq_vars_df[col].dropna().to_list()
-                        for col in wq_vars_df.columns
-                    ]
-                )
+            # Calculate the Floating Algae Index (FAI) for the
+            # available instruments
+            wq_ds["fai"] = geomedian_FAI(
+                annual_data=annual_data,
+                water_mask=wq_ds["water_mask"],
+                compute=True,
             )
+            gc.collect()
 
-            # TODO: Refine list of expected water quality variables
-            # to keep in final output dataset.
-            initial_keep_list = [
-                # water_analysis
-                "wofs_ann_freq_sigma",
-                "wofs_ann_confidence",
-                "wofs_pw_threshold",
-                "wofs_ann_pwater",
-                "wofs_ann_water",
-                "wofs_ann_watermask",
-                # FAI
-                "agm_fai",
-                "msi_agm_fai",
-                "oli_agm_fai",
-                "tm_agm_fai",
-                # NDVI
-                "agm_ndvi",
-                "msi_agm_ndvi",
-                "oli_agm_ndvi",
-                "tm_agm_ndvi",
-                # Clear water mask
-                "clearwater",
-                # Hue
-                "agm_hue",
-                "msi_agm_hue",
-                "oli_agm_hue",
-                "tm_agm_hue",
-                # optical water type
-                "owt_msi",
-                "owt_oli",
-                # wq variables
-                "tss",
-                "chla",
-                "tsi",
-            ]
+            # Calculate the clear water mask.
+            wq_ds["clear_water"] = clear_water_mask(
+                annual_data=annual_data,
+                water_frequency_threshold=WFTH,
+                water_mask=wq_ds["water_mask"],
+                agm_fai=wq_ds["fai"]["agm_fai"],
+                compute=True,
+            )
+            gc.collect()
 
-            # Create drop list for unused variables
-            droplist = []
-            for instrument in list(instruments_list.keys()):
-                for band in list(instruments_list[instrument].keys()):
-                    variable = instruments_list[instrument][band]["varname"]
-                    if variable not in initial_keep_list:
-                        droplist = np.append(droplist, variable)
-                        droplist = np.append(droplist, variable + "r")
+            # Calculate the Normalized Difference Vegetation Index (NDVI)
+            # for the available instruments.
+            wq_ds["ndvi"] = geomedian_NDVI(
+                annual_data=annual_data,
+                water_mask=wq_ds["water_mask"],
+                compute=True,
+            )
+            gc.collect()
 
-            ds_out = ds_out.drop_vars(droplist, errors="ignore")
+            # Apply Rayleigh correction to the available instruments.
+            annual_data = apply_R_correction(
+                instrument_data=annual_data,
+                water_mask=wq_ds["water_mask"],
+                compute=False,
+                drop=True,
+            )
+            gc.collect()
 
-            # Save each band as COG
-            fs = get_filesystem(output_directory, anon=False)
-            bands = list(ds_out.data_vars)
+            # Functions beyond this point do not make provisions for
+            # uncorrected data i.e. the original band being present plus
+            # the corrrected band (e.g. msi04_agm and msi04_agmr). Always
+            # drop the uncorrected bands after applying the R correction.
 
-            for band in bands:
-                output_cog_url = get_wq_cog_url(
-                    output_directory=output_directory,
-                    tile_id=tile_id,
-                    temporal_id=temporal_id,
-                    band_name=band,
-                    product_name=product_name,
-                    product_version=product_version,
-                )
+            # Calculate the Hue for the available instruments.
+            wq_ds["hue"] = geomedian_hue(
+                annual_data=annual_data,
+                clear_water_mask=wq_ds["clear_water"],
+                compute=True,
+            )
+            gc.collect()
 
-                # Enforce data type for all bands to float32
-                da: xr.DataArray = ds_out[band].astype(np.float32)
+            # Run Optical Water Type classification
+            wq_ds["owt"] = run_OWT(
+                instrument_data=annual_data,
+                clear_water_mask=wq_ds["clear_water"],
+                compute=True,
+            )
+            gc.collect()
 
-                # Set attributes
-                if band not in wq_vars_list:
-                    da.attrs = dict(
-                        nodata=np.nan,
-                        scales=1,
-                        offsets=0,
-                        product_name=product_name,
-                        product_version=product_version,
-                    )
-                else:
-                    da.attrs.update(
-                        dict(
+            # Calculate TSM, TSI and Chla Water Quality variables
+            wq_ds["tsm_chla_tsi"], wq_vars_df = WQ_vars(
+                annual_data=annual_data,
+                water_mask=wq_ds["water_mask"],
+                compute=True,
+                stack_wq_vars=True,
+            )
+            gc.collect()
+
+            measurement_paths: list[str] = []
+            for wq_var_group in list(wq_ds.keys()):
+                ds = wq_ds[wq_var_group]
+                if isinstance(ds, xr.DataArray):
+                    name = ds.name
+                    ds = ds.to_dataset(name=name)
+
+                # Save each band as COG
+                fs = get_filesystem(output_directory, anon=False)
+                bands = list(ds.data_vars.keys())
+                for band in bands:
+                    da = ds[band]
+                    if da.size == 0:
+                        continue
+                    # Set attributes
+                    if "scales" not in list(da.attrs.keys()):
+                        da.attrs = dict(
+                            nodata=np.nan,
+                            scales=1,
+                            offsets=0,
                             product_name=product_name,
                             product_version=product_version,
                         )
+                    else:
+                        da.attrs.update(
+                            dict(
+                                product_name=product_name,
+                                product_version=product_version,
+                            )
+                        )
+
+                    # Write COG
+                    cog_bytes = write_cog(
+                        geo_im=da,
+                        fname=":mem:",
+                        overwrite=True,
+                        nodata=da.attrs["nodata"],
+                        tags=da.attrs,
                     )
 
-                # Write COG
-                cog_bytes = write_cog(
-                    geo_im=da,
-                    fname=":mem:",
-                    overwrite=True,
-                    nodata=da.attrs["nodata"],
-                    tags=da.attrs,
-                )
-                with fs.open(output_cog_url, "wb") as f:
-                    f.write(cog_bytes)
-                log.info(f"Band {band} saved to {output_cog_url}")
+                    output_cog_url = get_wq_cog_url(
+                        output_directory=output_directory,
+                        tile_id=tile_id,
+                        temporal_id=temporal_id,
+                        band_name=band,
+                        product_name=product_name,
+                        product_version=product_version,
+                    )
+                    with fs.open(output_cog_url, "wb") as f:
+                        f.write(cog_bytes)
+                    log.info(f"Band {band} saved to {output_cog_url}")
+                    measurement_paths.append(output_cog_url)
 
-            # Save WQ parameters table
-            output_csv_url = get_wq_csv_url(
-                output_directory=output_directory,
-                tile_id=tile_id,
-                temporal_id=temporal_id,
-                product_name=product_name,
-                product_version=product_version,
-            )
-            with fs.open(output_csv_url, mode="w") as f:
-                wq_vars_df.to_csv(f, index=False)
-
+                if wq_var_group == "tsm_chla_tsi":
+                    # Save WQ parameters table
+                    output_csv_url = get_wq_csv_url(
+                        output_directory=output_directory,
+                        tile_id=tile_id,
+                        temporal_id=temporal_id,
+                        product_name=product_name,
+                        product_version=product_version,
+                    )
+                    with fs.open(output_csv_url, mode="w") as f:
+                        wq_vars_df.to_csv(f, index=False)
+                    log.info(f"WQ parameters table saved to {output_csv_url}")
             # Generate STAC metadata
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=UserWarning)
                 log.info("Creating metadata STAC file ...")
-                stac_file_url = prepare_dataset(
-                    dataset_path=get_parent_dir(output_csv_url),
-                    #  source_datasets_uuids=source_datasets_uuids,
+                stac_file_url = prepare_dataset(  # noqa F841
+                    measurement_paths=measurement_paths,
                 )
 
             log.info(f"Successfully processed task: {task_id_str}")
