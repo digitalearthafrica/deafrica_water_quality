@@ -6,18 +6,18 @@ import warnings
 
 import click
 import numpy as np
+import rioxarray  # noqa F401
 import toolz
 import xarray as xr
 from datacube import Datacube
 from deafrica_tools.dask import create_local_dask_cluster
 from odc import dscache
-from odc.geo.xr import write_cog
+from odc.geo.xr import assign_crs, write_cog
 from odc.stats.model import DateTimeRange
 
 from water_quality.io import (
     check_directory_exists,
     get_filesystem,
-    get_parent_dir,
     get_wq_cog_url,
     get_wq_csv_url,
     get_wq_dataset_path,
@@ -341,11 +341,16 @@ def cli(
                     name = ds.name
                     ds = ds.to_dataset(name=name)
 
+                no_crs = ds.rio.crs is None
+                if no_crs:
+                    ds = assign_crs(ds, tile_geobox.crs)
+
                 # Save each band as COG
                 fs = get_filesystem(output_directory, anon=False)
                 bands = list(ds.data_vars.keys())
                 for band in bands:
                     da = ds[band]
+
                     if da.size == 0:
                         continue
                     # Set attributes
