@@ -37,6 +37,7 @@ from water_quality.mapping.load_data import load_annual_data
 from water_quality.mapping.ndvi import geomedian_NDVI
 from water_quality.mapping.optical_water_type import run_OWT
 from water_quality.mapping.pixel_correction import apply_R_correction
+from water_quality.mapping.temperature import water_temperature
 from water_quality.mapping.water_detection import (
     clear_water_mask,
     five_year_water_mask,
@@ -263,6 +264,13 @@ def cli(
             # Generate 5 year water mask
             wq_ds["water_mask"] = five_year_water_mask(
                 annual_data=annual_data,
+                compute=True,
+            )
+            gc.collect()
+
+            wq_ds["water_temp"] = water_temperature(
+                annual_data=annual_data,
+                water_mask=wq_ds["water_mask"],
                 compute=True,
             )
             gc.collect()
