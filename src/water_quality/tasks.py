@@ -21,7 +21,7 @@ def create_task_id(temporal_id: str, tile_id: tuple[int, int] | str) -> str:
     Parameters
     ----------
     temporal_id : str
-        Temproal range to create the task for.
+        Temporal range to create the task for.
     tile_id : tuple[int, int] | str
         Tile ID for the tile to create the task for.
 
@@ -51,7 +51,7 @@ def parse_task_id(task_id: str) -> tuple[str, int, int]:
         Temporal ID and tile ID components of the task.
     """
     # Check Task id has only 3 parts
-    sep = "/"  # based on seperator used in create_task_id
+    sep = "/"  # based on separator used in create_task_id
     parts = split_and_check(task_id, sep, 3)
 
     # Get the tile ID

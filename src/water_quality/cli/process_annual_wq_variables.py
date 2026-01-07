@@ -167,7 +167,7 @@ def cli(
     all_task_ids = sorted([i[0] for i in cache.tiles(grid_name)])
 
     if tasks and tiles:
-        raise ValueError("Use either tasks or tiles, not both.")
+        raise ValueError("Use either --tasks or --tiles, not both.")
     else:
         if tasks or tiles:
             if tasks:
@@ -314,7 +314,7 @@ def cli(
 
             # Functions beyond this point do not make provisions for
             # uncorrected data i.e. the original band being present plus
-            # the corrrected band (e.g. msi04_agm and msi04_agmr). Always
+            # the corrected band (e.g. msi04_agm and msi04_agmr). Always
             # drop the uncorrected bands after applying the R correction.
 
             # Calculate the Hue for the available instruments.
