@@ -213,6 +213,7 @@ def cli(
         temporal_id, tile_idx, tile_idy = task_id
         tile_id = (tile_idx, tile_idy)
         task_id_str = create_task_id(temporal_id, tile_id)
+        tile_geobox = grid_spec.tile_geobox(tile_index=tile_id)
         log.info(
             f"Processing task {idx + 1} of {len(tasks_to_run)}: {task_id_str} "
         )
@@ -249,7 +250,6 @@ def cli(
             dss = toolz.groupby(
                 lambda ds: input_products[ds.product.name], dss
             )
-            tile_geobox = grid_spec.tile_geobox(tile_index=tile_id)
 
             # Load annual data for all instruments
             annual_data = load_annual_data(
