@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import xarray as xr
 
 log = logging.getLogger(__name__)
@@ -104,6 +105,15 @@ def geomedian_NDVI(
         all_inst_count_total,
         mean_ndvi,
     )
+
+    # This step is necessary to address
+    # https://github.com/opendatacube/datacube-core/issues/2059
+    # ODC makes an assumption that all datasets contain all measurements
+    # listed in the product definition.
+    for inst in geomedian_ndvi_instruments:
+        if inst not in loaded_instruments:
+            ndvi_ds[f"{inst}_ndvi"] = xr.full_like(ndvi_ds["agm_ndvi"], np.nan)
+
     if compute:
         log.info("\tComputing NDVI dataset ...")
         ndvi_ds = ndvi_ds.compute()

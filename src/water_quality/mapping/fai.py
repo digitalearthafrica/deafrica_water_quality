@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import xarray as xr
 
 log = logging.getLogger(__name__)
@@ -173,6 +174,15 @@ def geomedian_FAI(
         all_inst_count_total,
         mean_fai,
     )
+
+    # This step is necessary to address
+    # https://github.com/opendatacube/datacube-core/issues/2059
+    # ODC makes an assumption that all datasets contain all measurements
+    # listed in the product definition.
+    for inst in geomedian_fai_instruments:
+        if inst not in loaded_instruments:
+            fai_ds[f"{inst}_fai"] = xr.full_like(fai_ds["agm_fai"], np.nan)
+
     if compute:
         log.info("\tComputing FAI dataset ...")
         fai_ds = fai_ds.compute()
