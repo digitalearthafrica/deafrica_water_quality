@@ -26,9 +26,9 @@ dependencies:
   - distributed
   - lz4
   # fsspec + extras
-  - fsspec
-  - gcsfs
-  - s3fs
+  - fsspec>=2026.1.0
+  - gcsfs>=2026.1.0
+  - s3fs>=2026.1.0
   # xarray + extras
   - xarray
   - cftime
