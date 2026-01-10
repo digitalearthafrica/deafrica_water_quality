@@ -299,6 +299,14 @@ def geomedian_hue(
         clear_water_mask == 1
     )
 
+    # This step is necessary to address
+    # https://github.com/opendatacube/datacube-core/issues/2059
+    # ODC makes an assumption that all datasets contain all measurements
+    # listed in the product definition.
+    for inst in geomedian_hue_instruments:
+        if inst not in loaded_instruments:
+            hue_ds[f"{inst}_hue"] = xr.full_like(hue_ds["agm_hue"], np.nan)
+
     if compute:
         log.info("\tComputing Hue dataset ...")
         hue_ds = hue_ds.compute()

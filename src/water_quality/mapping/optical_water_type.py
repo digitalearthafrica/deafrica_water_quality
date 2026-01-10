@@ -299,7 +299,19 @@ def run_OWT(
                     )
 
         owt_results["agm_owt"] = agm_owt
+
+        # This step is necessary to address
+        # https://github.com/opendatacube/datacube-core/issues/2059
+        # ODC makes an assumption that all datasets contain all measurements
+        # listed in the product definition.
+        for inst in geomedian_instruments:
+            if inst not in loaded_instruments:
+                owt_results[f"{inst}_owt"] = xr.full_like(
+                    owt_results["agm_owt"], np.nan
+                )
+
         # TODO: Add agm_owt calculation for non-agm instruments?
+        # this will need to be in a separate function.
 
         # Mask again using clear water mask because OWT calculation
         # may assign values to non-water pixels.
