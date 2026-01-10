@@ -167,7 +167,7 @@ def cli(
     all_task_ids = sorted([i[0] for i in cache.tiles(grid_name)])
 
     if tasks and tiles:
-        raise ValueError("Use either tasks or tiles, not both.")
+        raise ValueError("Use either --tasks or --tiles, not both.")
     else:
         if tasks or tiles:
             if tasks:
@@ -213,6 +213,7 @@ def cli(
         temporal_id, tile_idx, tile_idy = task_id
         tile_id = (tile_idx, tile_idy)
         task_id_str = create_task_id(temporal_id, tile_id)
+        tile_geobox = grid_spec.tile_geobox(tile_index=tile_id)
         log.info(
             f"Processing task {idx + 1} of {len(tasks_to_run)}: {task_id_str} "
         )
@@ -249,7 +250,6 @@ def cli(
             dss = toolz.groupby(
                 lambda ds: input_products[ds.product.name], dss
             )
-            tile_geobox = grid_spec.tile_geobox(tile_index=tile_id)
 
             # Load annual data for all instruments
             annual_data = load_annual_data(
@@ -314,7 +314,7 @@ def cli(
 
             # Functions beyond this point do not make provisions for
             # uncorrected data i.e. the original band being present plus
-            # the corrrected band (e.g. msi04_agm and msi04_agmr). Always
+            # the corrected band (e.g. msi04_agm and msi04_agmr). Always
             # drop the uncorrected bands after applying the R correction.
 
             # Calculate the Hue for the available instruments.
