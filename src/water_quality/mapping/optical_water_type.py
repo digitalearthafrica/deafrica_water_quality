@@ -1,390 +1,242 @@
-import gc
+import logging
+from importlib.resources import files
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
-# Estimated spectra for each optical water type for each sensor (MSI, OLI, TM)
-# calculated from full spectra table provided by Vagelis Spyrakos
-# columns are bands, rows are OWT
-OWT_LIST = [
-    "owt1",
-    "owt2",
-    "owt3",
-    "owt4",
-    "owt5",
-    "owt6",
-    "owt7",
-    "owt8",
-    "owt9",
-    "owt10",
-    "owt11",
-    "owt12",
-    "owt13",
-]
-
-# msi bands: 1, 2, 3, 4, 5, 6, 7
-OWT_DATA_MSI = np.asarray(
-    [
-        0.000518281,
-        0.002873764,
-        0.003495403,
-        0.001515508,
-        0.002204739,
-        0.003842756,
-        0.005026098,
-        0.001310923,
-        0.007407241,
-        0.007373993,
-        0.003239791,
-        0.001309939,
-        0.000351881,
-        0.00044227,
-        0.002720793,
-        0.012390417,
-        0.00737146,
-        0.001458816,
-        0.000422552,
-        0.000142766,
-        0.00018326,
-        0.001011837,
-        0.006135417,
-        0.006416972,
-        0.00401114,
-        0.001825363,
-        0.000454228,
-        0.000554565,
-        0.001368776,
-        0.005729538,
-        0.004259349,
-        0.00409354,
-        0.001965091,
-        0.001276867,
-        0.001526747,
-        0.000947881,
-        0.005756157,
-        0.006822492,
-        0.003394953,
-        0.002302141,
-        0.000694368,
-        0.000822148,
-        0.000720924,
-        0.003734303,
-        0.004729343,
-        0.002251117,
-        0.003381287,
-        0.002206305,
-        0.002708644,
-        0.000830314,
-        0.004805815,
-        0.005933108,
-        0.003108917,
-        0.002882319,
-        0.001181092,
-        0.001454993,
-        0.001877709,
-        0.009255961,
-        0.007552662,
-        0.002441745,
-        0.000847245,
-        0.000279124,
-        0.000375539,
-        0.000842475,
-        0.00240552,
-        0.002787709,
-        0.005383652,
-        0.003098927,
-        0.001542782,
-        0.002194582,
-        0.000746178,
-        0.004633521,
-        0.005087786,
-        0.00500395,
-        0.002445958,
-        0.000762379,
-        0.000962499,
-        0.001439293,
-        0.006599122,
-        0.005582806,
-        0.003590672,
-        0.001796926,
-        0.000768249,
-        0.000934859,
-        0.006322908,
-        0.014258851,
-        0.002314198,
-        0.000275429,
-        8.56521e-05,
-        6.41172e-05,
-        0.000110569,
-    ]
-).reshape(len(OWT_LIST), 7)
-
-# oli bands: 1,2,3,4
-OWT_DATA_OLI = np.asarray(
-    [
-        0.000536567,
-        0.000860402,
-        0.002160328,
-        0.001178919,
-        0.001346095,
-        0.002267667,
-        0.004757344,
-        0.002459032,
-        0.002818286,
-        0.0041035,
-        0.004739951,
-        0.001088903,
-        0.001034619,
-        0.001850067,
-        0.004198279,
-        0.003021194,
-        0.001429095,
-        0.001886083,
-        0.002822574,
-        0.00284571,
-        0.000971,
-        0.001697917,
-        0.004364393,
-        0.002620484,
-        0.000754857,
-        0.001114315,
-        0.002976344,
-        0.001750548,
-        0.000856452,
-        0.00142315,
-        0.003775541,
-        0.002414677,
-        0.001945476,
-        0.002931367,
-        0.004860984,
-        0.001833516,
-        0.000936538,
-        0.000772627,
-        0.001869377,
-        0.003541968,
-        0.000764871,
-        0.001385817,
-        0.00335777,
-        0.003580806,
-        0.001499333,
-        0.002115267,
-        0.003644426,
-        0.00264,
-        0.006800333,
-        0.00588125,
-        0.001539375,
-        0.000199513,
-    ]
-).reshape(len(OWT_LIST), 4)
-
-# Zhang et al.
-OWT_GROUPS = {
-    "oligotrophic": [3, 9, 13],
-    "eutropic and blue-green": [1, 2, 4, 5, 11, 12],
-    "hypereutrophic and green-brown": [6, 7, 8, 10],
-}
-
-# 6 of 7 useful bands (missing band 1)
-EXPECTED_MSI_BANDS = ["msi02", "msi03", "msi04", "msi05", "msi06", "msi07"]
-# (2,3,4) - missing band 1
-EXPECTED_OLI_BANDS = ["oli02", "oli03", "oli04"]
-# TM has 4 (all of 1,2,3,4)
-# EXPECTED_TM_BANDS = ["tm01", "tm02" , "tm03", "tm04"]
+log = logging.getLogger(__name__)
 
 
-def get_owt_reference_data(instrument: str) -> xr.DataArray:
-    # Make a DataArray containing the OWT reference data
-    # OWT types are stored in their own dimension to support vector multiplication
-    if "msi" in instrument:
-        msi_bands = [
-            "msi01",
-            "msi02",
-            "msi03",
-            "msi04",
-            "msi05",
-            "msi06",
-            "msi07",
-        ]
-        owt_msi = xr.DataArray(
-            OWT_DATA_MSI,
-            dims=("owt", "msi_band"),
-            coords={
-                "owt": OWT_LIST,
-                "msi_band": msi_bands,
-            },
-            attrs={
-                "desc": "optical water types - characteristic reflectances for msi"
-            },
+def create_OWT_response_model(
+    sensor: str, write_to_file: bool
+) -> pd.DataFrame:
+    """
+    Create Optical Water Type (OWT) response models.
+    Parameters
+    ----------
+    sensor : str
+        The instrument for which to create the OWT response model.
+        Must be one of 'msi', 'msi_agm', 'tm', 'tm_agm', 'oli', 'oli_agm'.
+
+    write_to_file : bool
+        Whether to write the OWT response model to a CSV file.
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing OWT response model for the instrument
+
+    """
+    sensors = ["msi", "msi_agm", "tm", "tm_agm", "oli", "oli_agm"]
+
+    if sensor not in sensors:
+        raise ValueError(
+            f"Instrument must be one of {', '.join(sensors)}, not {sensor}"
         )
-        return owt_msi
-    elif "oli" in instrument:
-        oli_bands = ["oli01", "oli02", "oli03", "oli04"]
-        owt_oli = xr.DataArray(
-            OWT_DATA_OLI,
-            dims=("owt", "oli_band"),
-            coords={
-                "owt": OWT_LIST,
-                "oli_band": oli_bands,
-            },
-            attrs={
-                "desc": "optical water types - characteristic reflectances for oli"
-            },
+
+    OWT_spectra_fp = files("water_quality.data").joinpath(
+        "Vagelis_OWT_allwaters_mean_standardised.csv"
+    )
+    OWT_spectra = pd.read_csv(OWT_spectra_fp)
+    # Limit to inland water types
+    OWT_spectra = OWT_spectra[OWT_spectra.index < 13]
+
+    # read in the wavelengths for the bands in
+    # (spectral response models)
+    if sensor.endswith("_agm"):
+        suffix = "_agm"
+        sensor_data_fp = files("water_quality.data").joinpath(
+            f"sensor bands-{sensor[: -len(suffix)]}.csv"
         )
-        return owt_oli
     else:
-        raise NotImplementedError(
-            f"OWT reference data for the instrument {instrument} is not available"
+        suffix = ""
+        sensor_data_fp = files("water_quality.data").joinpath(
+            f"sensor bands-{sensor}.csv"
+        )
+    sensor_data = pd.read_csv(sensor_data_fp)
+    sensor_data["band_name"] = sensor_data["band_name"] + suffix
+
+    # Rename columns to avoid clashes with reserved words
+    sensor_data.rename(columns={"max": "l_max", "min": "l_min"}, inplace=True)
+
+    # set up a  dataframe to take results for this instrument
+    owt_values = OWT_spectra["wl"].to_list()
+    owt_labels = [f"OWT-{i}" for i in owt_values]
+    inst_OWT = pd.DataFrame(data={"OWT": owt_values}, index=owt_labels)
+
+    # list the bands  that are going to be relevant , ie., less than 800nm
+    band_list = sensor_data[sensor_data["l_max"] < 800]["band_name"].to_list()
+
+    for band_name in band_list:
+        band_data = sensor_data[sensor_data["band_name"] == band_name].iloc[0]
+
+        # Determine the integration interval based on the central
+        # wavelength and the width
+        delta = band_data["width"] * 0.8 * 0.5
+        central = band_data["central"]
+
+        # Find start and end column numbers in the response functions
+        # and average over those for each OWT, must allow for the
+        # spectral band width.
+        start = str(int(central - delta))
+        end = str(int(central + delta))
+        inst_OWT.insert(
+            inst_OWT.columns.size,
+            band_name,
+            OWT_spectra.loc[:, start:end].T.mean().to_list(),
+        )
+    if write_to_file:
+        inst_OWT.to_csv(
+            files("water_quality.data").joinpath(f"{sensor}_OWT_vectors.csv")
         )
 
+    return inst_OWT
 
-def OWT_pixel(
-    ds: xr.Dataset,
-    instrument: str,
-    resample_rate: int | None = None,
-) -> xr.DataArray:
-    """Determine the open water type for each pixel, over areas
-    that are usually water.
+
+def OWT(
+    ds,
+    instrument,
+    OWT_vectors,
+    agm=False,
+    dp_corrected=False,
+):
+    # --- this version uses a long-hand approch to calculating the dot product. Inelegant but simple.
+    # --- identify the instrument bands that are relevant and in the dataset
+    log.info(
+        f"Calculating Optical Water Type (OWT) for instrument: {instrument}"
+    )
+    suffix = ""
+    if agm:
+        suffix = suffix + "_agm"
+    if dp_corrected:
+        suffix = suffix + "r"
+
+    # This loop renames the columns so that we can match them with the
+    # data variables
+    for col in OWT_vectors.columns.values:
+        if col.find(instrument) > -1:
+            OWT_vectors = OWT_vectors.rename(columns={col: col + suffix})
+    band_list = list(set(ds.data_vars) & set(OWT_vectors.columns.values))
+    band_list.sort()
+
+    # Ditch unnecessary columns and rows in the vectors table and
+    # calculate the magnitude of each vector
+    OWT_vectors = OWT_vectors.drop(
+        columns=list(set(OWT_vectors.columns.values) - set(band_list))
+    )
+    OWT_vectors["length"] = (
+        (OWT_vectors**2).sum(axis=1)
+    ) ** 0.5  # calculate the length of each vector
+    OWT_vectors = OWT_vectors.reset_index().rename(
+        columns={"index": "OWT"}
+    )  # brings the OWT labels in as a normal column,'OWT'
+
+    # --- loop through the Optical water types ---
+    start = True
+    for OWT in OWT_vectors["OWT"]:
+        vec = OWT_vectors[OWT_vectors["OWT"] == OWT]  # the vector for this OWT
+        OWT_index = int(OWT[OWT.find("-") + 1 :])  # the OWT numnber
+
+        # print(OWT_vectors[OWT_vectors['OWT']==OWT])
+        # --- create a dataset for this OWT based on one of he instrument bands ---
+        varname = band_list[0]
+        if start:
+            start = False
+            # working variiables
+            mydataset = xr.Dataset({"owt_current": ds[varname]})
+            #            mydataset = xr.Dataset({'owt_current' : ds[varname][:,::resample_rate,::resample_rate]})
+            mydataset["owt_cos_max"] = (
+                mydataset["owt_current"] * 0 + -2
+            )  # a number smaller than any cosine
+            mydataset["owt_cos"] = mydataset["owt_current"] * 0
+            mydataset["owt_closest"] = mydataset["owt_current"] * 0 + OWT_index
+            mydataset["self_product"] = mydataset["owt_current"] * 0
+            mydataset["vector_product"] = mydataset["owt_current"] * 0
+
+        mydataset["self_product"] = 0
+        mydataset["vector_product"] = 0
+        for band in band_list:
+            mydataset["self_product"] = (
+                mydataset["self_product"] + ds[band] ** 2
+            )
+            mydataset["vector_product"] = (
+                mydataset["vector_product"] + ds[band] * vec[band].item()
+            )
+
+        mydataset["self_product"] = mydataset["self_product"] ** 0.5
+        mydataset["owt_cos"] = mydataset["vector_product"] / (
+            mydataset["self_product"] * vec["length"].values
+        )
+        mydataset["owt_closest"] = xr.where(
+            mydataset["owt_cos"] > mydataset["owt_cos_max"],
+            OWT_index,
+            mydataset["owt_closest"],
+        )
+        mydataset["owt_cos_max"] = xr.where(
+            mydataset["owt_cos"] > mydataset["owt_cos_max"],
+            mydataset["owt_cos"],
+            mydataset["owt_cos_max"],
+        )
+
+        data = [
+            [3, "oligotrophic (clear)"],
+            [9, "oligotrophic (clear)"],
+            [13, "oligotrophic (clear)"],
+            [1, "eutrophic and blue-green"],
+            [2, "eutrophic and blue-green"],
+            [4, "eutrophic and blue-green"],
+            [5, "eutrophic and blue-green"],
+            [11, "eutrophic and blue-green"],
+            [12, "eutrophic and blue-green"],
+            [6, "hyper-eutrophic and green-brown"],
+            [7, "hyper-eutrophic and green-brown"],
+            [8, "hyper-eutrophic and green-brown"],
+            [10, "hyper-eutrophic and green-brown"],
+        ]
+        data.sort()
+        columns = ["OWT", "description"]
+
+        df = pd.DataFrame(data=data, columns=columns)
+        owt = mydataset.owt_closest.median().item()
+        desc = df[df["OWT"] == owt]["description"].item()
+        print("Prevailng water type is ", owt, " :  ", desc)
+    return mydataset["owt_closest"]
+
+
+def run_OWT(ds: xr.Dataset) -> xr.Dataset:
+    """
+    A function to run the Optical Water Type (OWT) classification on a dataset.
 
     Parameters
     ----------
     ds : xr.Dataset
-        _description_
-    instrument : str
-        Selected instrument established while building the dataset.
+        Input dataset containing spectral band data.
 
     Returns
     -------
-    xr.DataArray
-        Open Water Type for each pixel, over areas that are usually water.
+    xr.Dataset
+        Dataset with OWT classification results.
     """
-    shortname = instrument[0:3]
-
-    OWT = get_owt_reference_data(instrument)
-
-    if instrument == "msi_agm":
-        # Select the bands that have undergone dark pixel correction
-        # i.e. have the suffix "r".
-        suffix = "_agmr"
-        band_list = EXPECTED_MSI_BANDS
-        dim_name = "msi_band"
-        var_name = "msi_vals"
-    elif instrument == "oli_agm":
-        suffix = "_agmr"
-        band_list = EXPECTED_OLI_BANDS
-        dim_name = "oli_band"
-        var_name = "oli_vals"
-    else:
-        raise NotImplementedError(
-            f"OWT for the instrument {instrument} is not available"
+    suffix = "_agm"
+    for instrument in ["msi", "oli", "tm"]:
+        inst_agm = instrument + suffix
+        OWT_vectors = pd.read_csv(
+            files("water_quality.data").joinpath(f"{inst_agm}_OWT_vectors.csv")
         )
-
-    # Create a dataset whose coordinates match the input dataset.
-    resampled_ds = xr.Dataset(coords=ds.coords)
-
-    # Resample the dataset if rate provided.
-    if resample_rate is not None:
-        resampled_ds = resampled_ds.isel(
-            y=slice(None, None, resample_rate),
-            x=slice(None, None, resample_rate),
-        )
-
-    # Create a dimension for the surface reflectance data
-    resampled_ds = resampled_ds.assign_coords({dim_name: band_list})
-    data_stack_shape = (
-        resampled_ds.time.size,
-        resampled_ds.y.size,
-        np.size(band_list),
-        resampled_ds.x.size,
-    )
-    data_stack_bands = [i + suffix for i in band_list]
-    # TODO: Check on memory consumption at this point
-    data_stack = np.dstack(
-        [
-            # Select to cater for resampling
-            ds[band].sel(
-                x=resampled_ds.coords["x"], y=resampled_ds.coords["y"]
+        # Use the smad band as an indicator that data for the geomedian
+        # instrument exists in the dataset.
+        smad_band = f"{inst_agm}_smad"
+        if smad_band in ds.data_vars:
+            OWT_data = OWT(
+                ds.where(ds.clearwater == 1),
+                instrument,
+                OWT_vectors,
+                agm=True,
             )
-            for band in data_stack_bands
-        ]
-    ).reshape(data_stack_shape)
-    resampled_ds[var_name] = (("time", "y", dim_name, "x"), data_stack)
-    # To allow the matrix multiplication the bands dimension needs to be
-    # transposed to the end
-    resampled_ds = resampled_ds.transpose("time", "y", "x", dim_name)
-
-    # add a dimension for the OWT type
-    OWT = OWT.sel({dim_name: resampled_ds[dim_name].values})
-    resampled_ds = resampled_ds.assign_coords(owt=OWT.owt.values)
-
-    # Calculate the dot product between each pixel vector and each
-    # owt type vector
-    resampled_ds[shortname + "_x_owt"] = resampled_ds[var_name].dot(
-        OWT.T, dim=dim_name
-    )
-    # The result now has for every pixel, the dot product with the
-    # spectral reference vector.
-
-    # Calculate the self product (the scale) of each of the OWT
-    # reference vectors
-    owt_scale = np.sqrt(np.square(OWT).T.sum(dim=dim_name))
-
-    # Calculate the scale of each pixel vector
-    resampled_ds[shortname + "_scale"] = np.sqrt(
-        np.square(resampled_ds[var_name]).sum(dim=dim_name)
-    )
-
-    # Get the cosine value
-    resampled_ds[shortname + "_owt_cosine"] = (
-        resampled_ds[shortname + "_x_owt"] / resampled_ds[shortname + "_scale"]
-    ) / owt_scale
-
-    # Find the owt closest to the msi vector (the largest cosine)
-    # to avoid nan problems use np.argmax, then the array is  brought
-    # back into the dataset
-    resampled_ds[shortname + "_owt"] = (
-        ("time", "y", "x"),
-        np.argmax(resampled_ds[shortname + "_owt_cosine"].values, axis=3) + 1,
-    )
-
-    # replace zeros (where the scale of the pixel vector is zero)
-    # with nodata
-    resampled_ds[shortname + "_owt"] = xr.where(
-        resampled_ds[shortname + "_scale"] > 0,
-        resampled_ds[shortname + "_owt"],
-        np.nan,
-    )
-
-    da = resampled_ds[shortname + "_owt"].copy(deep=True)
-    del resampled_ds
-
-    if resample_rate is not None:
-        # Interpolate back to original grid
-        fill_value = 14
-        da = xr.where(np.isnan(da), fill_value, da)
-
-        # Interpolate to the original coordinates,
-        # and fill out any gaps including for years prior to the msi
-        # sensor being available
-        da = da.interp(
-            coords={"time": ds.time, "x": ds.x, "y": ds.y},
-            method="nearest",
-            kwargs={"bounds_error": False, "fill_value": fill_value},
-        )
-
-        # Reduce coverage to water areas
-        da = xr.where(~np.isnan(ds.watermask), da, np.nan)
-
-        # Replace the fill values with median values for the pixel,
-        # or year
-        # glob_med = da.where(da != fill_value).median()
-        pixel_med = da.where(da != fill_value).median(dim="time")
-        annual_med = da.where(da != fill_value).median(dim=("x", "y"))
-        da = xr.where(da == fill_value, pixel_med, da)
-        da = xr.where(da == fill_value, annual_med, da)
-    else:
-        # Reduce coverage to water areas
-        da = xr.where(~np.isnan(ds.watermask), da, np.nan)
-
-    gc.collect()
-
-    return da
+        varname = instrument + "_agm_owt"
+        if varname in ds.data_vars:
+            ds[varname] = xr.where(~np.isnan(OWT_data), OWT_data, ds[varname])
+        else:
+            ds[varname] = OWT_data
+        del OWT_data
+    return ds

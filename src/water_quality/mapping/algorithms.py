@@ -134,10 +134,8 @@ def geomedian_FAI(ds: xr.Dataset) -> xr.Dataset:
     for inst_agm in geomedian_instruments:
         # Use the smad band as an indicator that data for the geomedian
         # instrument exists in the dataset.
-        smad_band = f"{inst_agm}_smad"
-        if smad_band in ds.data_vars:
-            count_band = f"{inst_agm}_count"
-
+        count_band = f"{inst_agm}_count"
+        if count_band in ds.data_vars:
             # Scale factor based on the reference mean of the current instrument
             # relative to the reference mean of the reference instrument.
             scale = (
@@ -231,10 +229,8 @@ def geomedian_NDVI(ds: xr.Dataset) -> xr.Dataset:
     for inst_agm in geomedian_instruments:
         # Use the smad band as an indicator that data for the geomedian
         # instrument exists in the dataset.
-        smad_band = f"{inst_agm}_smad"
-        if smad_band in ds.data_vars:
-            count_band = f"{inst_agm}_count"
-
+        count_band = f"{inst_agm}_count"
+        if count_band in ds.data_vars:
             # Scale factor based on the reference mean of the current instrument
             # relative to the reference mean of the reference instrument.
             scale = (
