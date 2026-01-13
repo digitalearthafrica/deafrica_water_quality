@@ -1056,10 +1056,10 @@ def hue_calculation(dataset,instrument='',test=False,verbose=False) :
     return(Cdata.hue)
 
 def geomedian_hue (ds,water_mask,verbose=False,test=False):
-    # --- revised ,tidier , and without th bug ... I think -- a function to calculate the hue value of the geomedian, allowing for the possibility of multiple sensors at each time point
+    # --- revised ,tidier , and without the bug ... I think -- a function to calculate the hue value of the geomedian, allowing for the possibility of multiple sensors at each time point
     # --- first calculate the hue  for each instrument
     # --- mask is ignored.
-    ds['agm_hue'] = ('time','x','y'), np.zeros((ds.sizes['time'],ds.sizes['x'],ds.sizes['y']))
+    ds['agm_hue'] = ('time','y','x'), np.zeros((ds.sizes['time'],ds.sizes['y'],ds.sizes['x']))
     count         = np.zeros((ds.sizes['time'],ds.sizes['y'],ds.sizes['x']))
 
     for instr in ['oli','msi','tm'] :
