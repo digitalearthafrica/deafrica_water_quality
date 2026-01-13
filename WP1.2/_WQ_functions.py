@@ -16,20 +16,20 @@ def detect_geomedian_instruments (ds_annual):
             ds_annual[inst] = ~np.isnan(ds_annual[inst+'_smad'].mean(dim=('x','y')))
     return ds_annual
 
-
-def run_OWT(ds,verbose=False):
-    OWT_vector_data = create_OWT_response_models(agm=True)
-    suffix = '_agm'
+def run_OWT(ds,agm=False,verbose=False):
+    OWT_vector_data = create_OWT_response_models(agm=agm)
+    suffix = ''
+    if agm :  suffix = '_agm'
     for instrument in 'msi','oli','tm':
         if instrument+suffix in ds.data_vars:
             OWT_vectors = OWT_vector_data[instrument]    # the spectral reflectances specific to this sensor
             OWT_data    = OWT(ds.where(ds.clearwater==1),
                           instrument,
                           OWT_vectors,
-                          agm=True,
+                          agm=agm,
                           test=False, 
                           verbose=verbose) 
-            varname = instrument+'_agm_owt'
+            varname = instrument+suffix+'_owt'
             if varname in ds.data_vars:
                 ds[varname] = xr.where(~np.isnan(OWT_data),OWT_data,ds[varname])
             else : 
@@ -37,7 +37,6 @@ def run_OWT(ds,verbose=False):
             del OWT_data
     silent  = gc.collect()
     return(ds)
-
 
 # This function calculates a running 5-year wofs frequency on the dataset
 # --- The start and end values are calculated on the nearest 5 year window; otherwise the centre of the window
