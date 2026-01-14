@@ -7,12 +7,16 @@ import matplotlib.pyplot as plt
 import gc   # garbage collection
 import pandas as pd
 import sys
+import datacube
+
 
 # appending a path
 sys.path.append('/home/jovyan/dev/deafrica_water_quality/WP1.2')
-from _WQ_functions import *
+from _WQ_functions import trophic_state
+from _WQ_functions import instruments_list  
+from _WQ_functions import *  
 #from WQ_functions import NDVI
-from _WQ_functions import FAI
+#from _WQ_functions import FAI
 #from WQ_functions import NDVI
 
 
@@ -23,7 +27,8 @@ from _WQ_functions import FAI
 
 def wp22_dummy(s='nonesense'):
     print('function wp22_dummy is now running -->'+s)
-    instruments_list()
+    trophic_state()
+    #instruments_list()
     return()
 
 # --------------------------------------------------------------------------------
@@ -73,19 +78,14 @@ def geomedian_instruments_and_years(params):
     gm_year_start = np.min([gm_year_start,gm_year_end-5])
     gm_year_start = np.max([gm_year_start,2000])
     gm_years = [int(gm_year_start),int(gm_year_end)]
-
-    # --- don't try to use instruments for which there are no data#
-
-    # --- extract each geomedian using the odc connection
-    
+ 
     return(gm_years,instruments_to_use)
 
-
-# this is a copy since I can't get WP22_functions.py to recognise it in WQ_functions.py 
-#(in contrast, recognising FAI function is not a problem...)
 # ------------------------------------------------------------------------------------------
 # a function to calcultate the NDVI; for non-geomedian datasets at this point since its already covered for geomedians
 # This function calculates the NDVI for a designated instrument.
+# this is a copy since I can't get WP22_functions.py to recognise it in WQ_functions.py 
+# (in contrast, recognising FAI function is not a problem...)
 
 def NDVI(ds, instrument, test=False):
     instr = instrument
@@ -176,6 +176,66 @@ def add_vars_and_combine_datasets(data_list):
             full_ds = full_ds.combine_first(data_list[name])
     return(full_ds)
 
+
+# --------------------------------------------------------------------------------------
+# ---- This is a function to pull out the data for each geomedian, and build it into a single multi-instrument geomedian dataset
+# this version is from the FAI notebook; it is more mature than the original which did not pass all the arguments in.
+
+def build_agm_dataset(parameters,instruments_to_use,verbose=True):
+    # --- loads the 'data products' from the data cube collections
+    # --- returns a single dataset of uniform spatial resolution
+    if verbose : print('\nBuilding the Geomedian dataset:')
+
+    spacetime_domain = parameters['xyt'].copy()
+    spacetime_domain['time']  = (str(parameters['year1']),str(parameters['year2']))   # --- use the gemedan year range
+    
+    products = { 'tm_agm' :["gm_ls5_ls7_annual"],
+                'oli_agm' :["gm_ls8_annual","gm_ls8_ls9_annual"],
+                'msi_agm' :["gm_s2_annual"],
+                #'tirs'    :["ls5_st","ls7_st","ls8_st","ls9_st"],
+                'wofs_ann':["wofs_ls_summary_annual"],
+                'wofs_all':["wofs_ls_summary_alltime"],
+               }
+
+    instruments,measurements,rename_dict = instruments_list(instruments_to_use) 
+    datasets = {}
+    dc = datacube.Datacube(app='build_agm_dataset')
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use'] :
+            if verbose : print('loading data for ',instrument,'...')
+            datasets[instrument] = dc.load(product=(products[instrument]),
+                                 **spacetime_domain,
+                                 **{'measurements': measurements[instrument]},
+                                 output_crs='epsg:6933',
+                                 resolution=parameters['grid_resolution'],
+                                 align=(0,0),
+                                 resampling=parameters['resampling_option'],)
+    
+    #added a CRS since temperature data crashes without it
+
+    #separating the rename step out:
+    #rename the measurements to standardised variable names,
+
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use']:      
+            datasets[instrument] = rename_vars_robust(datasets[instrument],rename_dict[instrument],False)       
+     
+    # .... and build a list of datasets to merge:
+    mergelist = []; i = 0
+    first = True
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use'] and not instrument == 'tirs':      
+            #datasets[instrument] = rename_vars_robust(datasets[instrument],rename_dict[instrument],False)       
+            if first :
+                first = False
+                dataset = datasets[instrument]
+            else:
+                dataset = dataset.combine_first(datasets[instrument])
+            mergelist.append(datasets[instrument])
+    return(dataset)
+
+
+
 # ---------------------------------------------------------------------------------------------
 def build_dataset (spacetime_domain,
                    instruments_to_use, 
@@ -189,6 +249,7 @@ def build_dataset (spacetime_domain,
         instrument = 'oli'
         # --- load oli data
         # Load available data from all three Landsat satellites
+        dc = datacube.Datacube(app='building_dataset')
         ds_oli = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
