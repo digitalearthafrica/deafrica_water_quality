@@ -234,9 +234,11 @@ def build_agm_dataset(parameters,instruments_to_use,verbose=True):
             mergelist.append(datasets[instrument])
     return(dataset)
 
-
-
 # ---------------------------------------------------------------------------------------------
+# a function to build a dataset from the datacube, for each key sensor (msi, oli, etm)
+# returns a dictionary of datasets
+# based on the FAI notebook I think, or maybe WP2.1
+
 def build_dataset (spacetime_domain,
                    instruments_to_use, 
                    products, 
