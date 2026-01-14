@@ -6,9 +6,327 @@ import matplotlib.pyplot as plt
 import gc   # garbage collection
 import pandas as pd
 
+# ----------------------------------------------------------------------------
+# this function moved here from the Build_annual_datasets notebook
+def process_st_data_to_annual(ds_tirs,ds_wofs_ann,verbose=True,test=True):
+    # --- a function to process the surface temperature data to annual averages
+    # --- inputs are 1) a daily time series of temperatures and 
+    #                2) the annualised wofs data which is used as a template, and to which the results are returned
+
+    # -- rescale to centigrade, remove outliers, apply quality filter and also filter on emissivity > 0.95. 
+    #     (This handles outliers better than load_ard)
+
+    water_frequency_threshold = 0.5 # --- taking an inclusive approach at this stage
+    dst = ds_tirs
+    dsw = ds_wofs_ann
+    dst['tirs_st']    = (dst.tirs_st * 0.00341802 + 149.0) - 273.15
+    dst['tirs_st_qa'] = dst['tirs_st_qa'] * 0.01    # -- uncertainty in kelvin 
+    dst['tirs_emis']  = dst['tirs_emis' ] * 0.0001  # -- emissivity fraction
+    dst['tirs_st']    = xr.where(dst['tirs_st'] > 0,
+                            xr.where(dst['tirs_st_qa'] < 5,
+                                 xr.where(dst['tirs_emis']> 0.95,
+                                          dst['tirs_st'],
+                                          np.nan),
+                                 np.nan),
+                            np.nan)
+
+    # --- Average the temperatures up to years - min, max and mean --- Why no function that will do this easily?!
+    # --- data suggest that the median values are better than the mean
+
+    # --- create new variables in the annual wofs dataset to include temperature
+    times = ds_wofs_ann.time
+    dimensions  = ds_wofs_ann.sizes
+    arrayshape = [dimensions['time'],dimensions['y'],dimensions['x']]
+    dsw['tirs_st_ann_med'] = ('time','y','x'),np.zeros(arrayshape)
+    dsw['tirs_st_ann_min'] = ('time','y','x'),np.zeros(arrayshape)
+    dsw['tirs_st_ann_max'] = ('time','y','x'),np.zeros(arrayshape)
+
+    # --- iterate through the years to get the annual average focussed on the middle of the year 
+    # --- couldn't find a  (discoverable/ simple) function  to do this???!
+    for i in np.arange(0,times.size):
+        t_start = (times[i]-np.timedelta64(182,'D')) 
+        t_end   = (times[i]+np.timedelta64(182,'D'))
+        dsw['tirs_st_ann_med'][i,:,:] =  dst.sel(time=slice(t_start,t_end)).tirs_st.median(dim=('time'))
+        dsw['tirs_st_ann_min'][i,:,:] =  dst.sel(time=slice(t_start,t_end)).tirs_st.quantile(.1,dim=('time'))
+        dsw['tirs_st_ann_max'][i,:,:] =  dst.sel(time=slice(t_start,t_end)).tirs_st.quantile(.9,dim=('time'))
+
+    # --- restrict values to areas of water taking an inclusive approach at this time ----
+    dsw['tirs_st_ann_med'] = xr.where(dsw.wofs_ann_freq > water_frequency_threshold, dsw['tirs_st_ann_med'],np.nan)
+    dsw['tirs_st_ann_min'] = xr.where(dsw.wofs_ann_freq > water_frequency_threshold, dsw['tirs_st_ann_min'],np.nan)
+    dsw['tirs_st_ann_max'] = xr.where(dsw.wofs_ann_freq > water_frequency_threshold, dsw['tirs_st_ann_max'],np.nan)
+    
+    if verbose:
+        dsw.tirs_st_ann_med.median(dim=('x','y')).plot(figsize=(16,6),label='Median Water Temperature');
+        dsw.tirs_st_ann_min.median(dim=('x','y')).plot(               label='Minimum Water Temperature');
+        dsw.tirs_st_ann_max.median(dim=('x','y')).plot(               label='Maximum Water Temperature');
+        plt.title("Temperatures over time")
+        plt.ylabel("Centigrade")
+        plt.legend()
+
+    return(dsw)
+    
+
+
+# ----------------------------------------------------------------------------
+# this function moved here from the build_annual_datasets notebook 
+def build_wq_agm_dataset(spacetime_domain,instruments_to_use,verbose=False):
+    #loads the 'data products' from the data cube collections
+    #returns a single dataset of uniform spatial resolution
+    if verbose : print('\nBuilding the dataset:')
+    
+    products = { 'tm_agm' :["gm_ls5_ls7_annual"],
+                'oli_agm' :["gm_ls8_annual","gm_ls8_ls9_annual"],
+                'msi_agm' :["gm_s2_annual"],
+                'tirs'    :["ls5_st","ls7_st","ls8_st","ls9_st"],
+                'wofs_ann':["wofs_ls_summary_annual"],
+                'wofs_all':["wofs_ls_summary_alltime"],
+               }
+
+    instruments,measurements,rename_dict = instruments_list(instruments_to_use) 
+    datasets = {}
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use'] :
+            if verbose : print('loading data for ',instrument,'...')
+            datasets[instrument] = dc.load(product=(products[instrument]),
+                                 **spacetime_domain,
+                                 **{'measurements': measurements[instrument]},
+                                 output_crs='epsg:6933',
+                                 resolution=grid_resolution,
+                                 align=(0,0),
+                                 resampling=resampling_option,)
+    
+    #added a CRS since temperature data crashes without it
+
+    #separating the rename step out:
+    #rename the measurements to standardised variable names,
+
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use']:      
+            datasets[instrument] = rename_vars_robust(datasets[instrument],rename_dict[instrument],False)       
+    
+    # --- an additional call in here to process the surface temperature data to annual summary and apply qa
+    # --- this also ensures that the dataset remains on an annual time-step 
+    # --- temperature data is returned bundled with the wofs annual data
+    
+    if instruments_to_use['tirs']['use'] == True:
+        datasets['wofs_ann'] = process_st_data_to_annual(datasets['tirs'],datasets['wofs_ann'],verbose=verbose,test=test)
+    
+    # .... and build a list of datasets to merge:
+    mergelist = []; i = 0
+    first = True
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use'] and not instrument == 'tirs':      
+            #datasets[instrument] = rename_vars_robust(datasets[instrument],rename_dict[instrument],False)       
+            if first :
+                first = False
+                dataset = datasets[instrument]
+            else:
+                dataset = dataset.combine_first(datasets[instrument])
+            mergelist.append(datasets[instrument])
+    return(dataset)
+
+
+'''    
+    print (mergelist)
+    #merge the datasets:
+    if verbose: print('Merging datasets...')
+    dataset = xr.merge(mergelist) #,compat='override') 
+    print('Dataset complete.')
+    return(dataset)
+'''        
+# ----------------------------------------------------------------------
+
+
+
+def instruments_list (instruments_to_use,verbose=False)  : #The arguement is the list of instruments that is to be used. 
+    
+    #Primary list of instruments, measurements, and interoperable variable names
+    # Also, here is where to turn a particular band on or off, using the 'parameters' entry
+    # (an 'instrument' is something that produces a product ..., so it includes algorithms like wofs
+
+    #Three things are returned:
+    # 'instruments', the 'master list' of instruments being used in the analysis. This is a subsetof the full list available.
+    # 'measurements', a list of measurements to be accessed from the data cube collections - for each instrument
+    # 'rename_dict', a dictionary for re-naming measurements to have unique dataset variable names, when the time comes
+    
+
+    instruments = {
+          'wofs_ann'    : {
+                        'frequency' : {'varname' : ('wofs_ann_freq')      , 'parameters' : (True,'other')},
+                        'count_clear': {'varname': ('wofs_ann_clearcount'), 'parameters' : (True,)},
+                        'count_wet'  : {'varname': ('wofs_ann_wetcount')  , 'parameters' : (True,)}
+                        },
+          'wofs_all'    : {
+                        'frequency' : {'varname' : ('wofs_all_freq')      , 'parameters' : (True,'other')},
+                        'count_clear': {'varname': ('wofs_all_clearcount'), 'parameters' : (True,)},
+                        'count_wet'  : {'varname': ('wofs_all_wetcount')  , 'parameters' : (True,)}
+                        },
+              'oli_agm' : {
+                        'SR_B2' : {'varname': ('oli02_agm')      , 'parameters' : (True,'450-510')},
+                        'SR_B3' : {'varname': ('oli03_agm')      , 'parameters' : (True,'530-590')},
+                        'SR_B4' : {'varname': ('oli04_agm')      , 'parameters' : (True,'640-670')},
+                        'SR_B5' : {'varname': ('oli05_agm')      , 'parameters' : (True,'850-880')},
+                        'SR_B6' : {'varname': ('oli06_agm')      , 'parameters' : (True,'1570-1650')},
+                        'SR_B7' : {'varname': ('oli07_agm')      , 'parameters' : (True,'2110-2290')},
+                        'smad' :  {'varname': ('oli_agm_smad')   , 'parameters' : (True,)},
+                        'emad' :  {'varname': ('oli_agm_emad')   , 'parameters' : (True,)},
+                        'bcmad' : {'varname': ('oli_agm_bcmad')  , 'parameters' : (True,)},
+                        'count' : {'varname': ('oli_agm_count')  , 'parameters' : (True,)},
+                            },
+              'oli'    : {
+                        'SR_B1' : {'varname': ('oli01')      , 'parameters' : (True,'450-510')},
+                        'SR_B2' : {'varname': ('oli02')      , 'parameters' : (True,'450-510')},
+                        'SR_B3' : {'varname': ('oli03')      , 'parameters' : (True,'530-590')},
+                        'SR_B4' : {'varname': ('oli04')      , 'parameters' : (True,'640-670')},
+                        'SR_B5' : {'varname': ('oli05')      , 'parameters' : (True,'850-880')},
+                        'SR_B6' : {'varname': ('oli06')      , 'parameters' : (True,'1570-1650')},
+                        'SR_B7' : {'varname': ('oli07')      , 'parameters' : (True,'2110-2290')},
+                        'pq'    :  {'varname':  ('oli_pq')   , 'parameters' : (True,)},
+
+                            },
+            'msi_agm' : {
+                        'B02'   : {'varname': ('msi02_agm')      , 'parameters' : (True,'460-525')},
+                        'B03'   : {'varname': ('msi03_agm')      , 'parameters' : (True,)},
+                        'B04'   : {'varname': ('msi04_agm')      , 'parameters' : (True,)},
+                        'B05'   : {'varname': ('msi05_agm')      , 'parameters' : (True,)},
+                        'B06'   : {'varname': ('msi06_agm')      , 'parameters' : (True,)},
+                        'B07'   : {'varname': ('msi07_agm')      , 'parameters' : (True,)},
+                        'B08' 	: {'varname': ('msi08_agm')      , 'parameters' : (False,'uint16 	1 	0.0 	[band_08, nir, nir_1] 	NaN')},
+                        'B8A' 	: {'varname': ('msi8a_agm')      , 'parameters' : (True,'uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN')},
+                        'B11' 	: {'varname': ('msi11_agm')      , 'parameters' : (True,'uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN')},
+                        'B12' 	: {'varname': ('msi12_agm')      , 'parameters' : (True,'uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN')},
+                        'smad'  : {'varname': ('msi_agm_smad') , 'parameters' : (True,)},
+                        'emad'  : {'varname': ('msi_agm_emad')   , 'parameters' : (True,)},
+                        'bcmad' : {'varname': ('msi_agm_bcmad')  , 'parameters' : (True,)},
+                        'count' : {'varname': ('msi_agm_count')  , 'parameters' : (True,)},
+                            },
+            'msi'      : {
+                        'B01'   : {'varname': ('msi01')      , 'parameters' : (False,' 442 bandwidth 20 nm, spatial 60 m, Coastal aerosol')},
+                        'B02'   : {'varname': ('msi02')      , 'parameters' : (True, ' 493 bandwidth 65 nm, spatial 10 m,')},
+                        'B03'   : {'varname': ('msi03')      , 'parameters' : (True, ' 559 bandwidth 35 nm, spatial 10 m,')},
+                        'B04'   : {'varname': ('msi04')      , 'parameters' : (True, ' 665 bandwidth 31 nm, spatial 10 m,')},
+                        'B05'   : {'varname': ('msi05')      , 'parameters' : (True, ' 704 bandwidth 14 nm, spatial 20 m')},
+                        'B06'   : {'varname': ('msi06')      , 'parameters' : (True, ' 741 bandwidth 13 nm, spatial 20 m,')},
+                        'B07'   : {'varname': ('msi07')      , 'parameters' : (True, ' 780 bandwidth 19 nm, spatial 20 m,')},
+                        'B08' 	: {'varname': ('msi08')      , 'parameters' : (False,' 833 bandwidth 104 nm, spatial 10 m, uint16 	1 	0.0 	[band_08, nir, nir_1] 	NaN')},
+                        'B8A' 	: {'varname': ('msi8a')      , 'parameters' : (True, ' 864 bandwidth 21 nm, spatial 20 m, uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN')},
+                        'B11' 	: {'varname': ('msi11')      , 'parameters' : (True, '1612 bandwidth 92 nm, spatial 20 m, uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN')},
+                        'B12' 	: {'varname': ('msi12')      , 'parameters' : (True, '2193 bandwidth 180 nm, spatial 20 m, uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN')},
+                        'qa'    : {'varname': ('msi_qa')     , 'parameters' : (True,)},
+                            },
+            'tm_agm' : {
+                        'SR_B1'   : {'varname': ('tm01_agm')      , 'parameters' : (True,'blue 450-520')},
+                        'SR_B2'   : {'varname': ('tm02_agm')      , 'parameters' : (True,'green 520-600')},
+                        'SR_B3'   : {'varname': ('tm03_agm')      , 'parameters' : (True,'red   630-690')},
+                        'SR_B4'   : {'varname': ('tm04_agm')      , 'parameters' : (True,'nir   760-900')},
+                        'SR_B5'   : {'varname': ('tm05_agm')      , 'parameters' : (True,'swir1 1550-1750')},
+                        'SR_B7'   : {'varname': ('tm07_agm')      , 'parameters' : (True,'swir2 2080-2350')},
+                        'smad'    : {'varname': ('tm_agm_smad')   , 'parameters' : (True,)},
+                        'emad'    : {'varname': ('tm_agm_emad')   , 'parameters' : (True,)},
+                        'bcmad'   : {'varname': ('tm_agm_bcmad')  , 'parameters' : (True,)},
+                        'count'   : {'varname': ('tm_agm_count')  , 'parameters' : (True,)},
+                        },
+            'tm'      : {
+                        'SR_B1'   : {'varname': ('tm01')      , 'parameters' : (True,'blue 450-520')},
+                        'SR_B2'   : {'varname': ('tm02')      , 'parameters' : (True,'green 520-600')},
+                        'SR_B3'   : {'varname': ('tm03')      , 'parameters' : (True,'red   630-690')},
+                        'SR_B4'   : {'varname': ('tm04')      , 'parameters' : (True,'nir   760-900')},
+                        'SR_B5'   : {'varname': ('tm05')      , 'parameters' : (True,'swir1 1550-1750')},
+                        'SR_B7'   : {'varname': ('tm07')      , 'parameters' : (True,'swir2 2080-2350')},
+                        'pq'      : {'varname': ('tm_pq')     , 'parameters' : (True,)},
+                        },
+            'tirs' :   {
+                        "st"        : {'varname': ('tirs_st')      , 'parameters' : (True ,'ST_B10, uint16 	Kelvin 	0.0 	[band_10, st, surface_temperature]')},
+                        "ST_TRAD"   : {'varname' :('tirs_trad')    , 'parameters' : (False,'ST_TRAD, int16 	W/(m2.sr.μm) 	-9999.0 	[trad, thermal_radiance]')},
+                        "ST_URAD"   : {'varname': ('tirs_urad')    , 'parameters' : (False,'ST_URAD 	int16 	W/(m2.sr.μm) 	-9999.0 	[urad, upwell_radiance]')},
+                        "ST_DRAD"   : {'varname': ('tirs_drad')    , 'parameters' : (False,'ST_DRAD 	int16 	W/(m2.sr.μm) 	-9999.0 	[drad, downwell_radiance]')},
+                        "ST_ATRAN"  : {'varname': ('tirs_atran')   , 'parameters' : (False,'ST_ATRAN 	int16 	1 	-9999.0 	[atran, atmospheric_transmittance]')},
+                        "emis"      : {'varname': ('tirs_emis')    , 'parameters' : (True ,'ST_EMIS 	int16 	1 	-9999.0 	[emis, emissivity]')},
+                        "emisd"     : {'varname': ('tirs_emsd')    , 'parameters' : (False ,'ST_EMSD 	int16 	1 	-9999.0 	[emsd, emissivity_stddev]')},
+                        "ST_CDIST"  : {'varname': ('tirs_cdist')   , 'parameters' : (False,'ST_CDIST 	int16 	Kilometers 	-9999.0 	[cdist, cloud_distance]')},
+                        "QA_PIXEL"  : {'varname': ('tirs_qa_pixel'), 'parameters' : (False,'QA_PIXEL 	uint16 	bit_index 	1.0 	[pq, pixel_quality]')},
+                        "QA_RADSAT" : {'varname': ('tirs_radsat')  , 'parameters' : (False,'QA_RADSAT 	uint16 	bit_index 	0.0 	[radsat, radiometric_saturation]')},
+                        "st_qa"     : {'varname': ('tirs_st_qa')   , 'parameters' : (True ,'ST_QA 	int16 	Kelvin 	-9999.0 	[st_qa, surface_temperature_quality]')},
+                        }
+            }
+
+    #reduce the full dictionary above to those instruments actually to be used in this case
+    instrument_list = list(instruments.keys())
+    for instrument in instrument_list:
+        if not instruments_to_use[instrument]['use']: instruments.pop(instrument)
+
+    #from the master dictionary above, create a dictionary of the measurements to use with each sensor - this uses the datacube / collection names
+    #and while at it, a list of the standardised variable names
+    measurements = {}
+    variables = {}
+    for instrument in enumerate(instruments):
+        iname = instrument[1] 
+        mmt_list = []
+        var_list = []
+        for mmt in  instruments[iname].keys():
+            if instruments[iname][mmt]['parameters'][0]:                # True if the measurement is needed (according to the master list)
+                 mmt_list.append(mmt)                                   # the old dataset band names
+                 var_list.append(instruments[iname][mmt]['varname'])    # harmonised names for variables
+        variables   [iname]    = tuple(var_list)
+        measurements[iname]    = tuple(mmt_list)
+        #{measurements : measurements[instrument_name]} will return a dictionary of measurements to be used in dc.load for the relevant collection
+
+    #further, create a dictionary that will be used when re-naming variables once they are in a dataset
+    rename_dict = {}
+    for instrument in enumerate(instruments):
+        mmt_list = []
+        for mmt in enumerate(instruments[instrument[1]]):
+            if instruments[instrument[1]][mmt[1]]['parameters'][0]:
+                #this measurement wil be used
+                mmt_list.append((mmt[1],instruments[instrument[1]][mmt[1]]['varname']))
+    
+        rename_dict[instrument[1]] = tuple(mmt_list)
+        #Later, the function call "rename_variabes_robust(rename_dict[instrument_name])" can be used to rename each datacube variable 
+    if verbose :
+        print('Measurements to be included: \n',mmt_list[:][0])
+        print('Instruemnts used:  \n',list(instruments.keys()))
+        print('Measurements will be re-named to variables as follows :\n',rename_dict)
+    return(instruments,measurements,rename_dict)
+
+# ----------------------------------------------------------------------------
+# this function moved here from the build_annual_datasets notebook 
+
+def check_instrument_dates(instruments_to_use,year1,year2,verbose=True):
+    # --- this function changes the values in the dictionary. Those changes apply globally, it seems. 
+    #---  cross-check against the years for which the analysis is going to be run.
+    instrument_dates = {
+        'oli_agm'  : [2013,2024],
+        'oli'      : [2013,2025],
+        'msi_agm'  : [2017,2024],
+        'msi'      : [2017,2025],
+        'wofs_ann' : [1990,2024],
+        'wofs_all' : [1990,2024],
+        'tm_agm'   : [1990,2012],
+        'tm'       : [1990,2023],
+        'tirs'     : [2000,2025],
+        }
+
+    for name in list(instruments_to_use.keys()):
+        if verbose: print(name, instruments_to_use[name]['use'])
+        if not (instrument_dates[name][1] >= int(year1) and instrument_dates[name][0] <= int(year2)):
+            if verbose: print('instrument ',name,' has date ranges ',instrument_dates[name][0],instrument_dates[name][1],' outside of ',year1,year2)
+            instruments_to_use[name]['use'] = False
+    return(instruments_to_use)
+
+# ------------------------------------------------
+    
+
+
+
+
+
+
 # --- Add boolean variables that indicate which instruments are available in the geomedian data series for a given year. For earlier years tm is available. 
 # --- assume that the 'smad' will always be available and use this as an indicator 
 # --- If the instrument is never available during the time series, the boolean variable is not added.
+
+
+
 def detect_geomedian_instruments (ds_annual):
     for inst in 'oli_agm','tm_agm','msi_agm':
         if inst+'_smad' in ds_annual.data_vars:
