@@ -5,6 +5,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import gc   # garbage collection
 import pandas as pd
+import datacube
 
 # ----------------------------------------------------------------------------
 # this function moved here from the Build_annual_datasets notebook
@@ -69,7 +70,10 @@ def process_st_data_to_annual(ds_tirs,ds_wofs_ann,verbose=True,test=True):
 
 # ----------------------------------------------------------------------------
 # this function moved here from the build_annual_datasets notebook 
-def build_wq_agm_dataset(spacetime_domain,instruments_to_use,verbose=False):
+def build_wq_agm_dataset(spacetime_domain,
+                         grid_resolution,
+                         resampling_option,
+                         instruments_to_use,verbose=False):
     #loads the 'data products' from the data cube collections
     #returns a single dataset of uniform spatial resolution
     if verbose : print('\nBuilding the dataset:')
@@ -84,6 +88,8 @@ def build_wq_agm_dataset(spacetime_domain,instruments_to_use,verbose=False):
 
     instruments,measurements,rename_dict = instruments_list(instruments_to_use) 
     datasets = {}
+    dc = datacube.Datacube(app='building_wq_agm_dataset')
+
     for instrument in list(instruments_to_use.keys()):
         if instruments_to_use[instrument]['use'] :
             if verbose : print('loading data for ',instrument,'...')
@@ -125,20 +131,10 @@ def build_wq_agm_dataset(spacetime_domain,instruments_to_use,verbose=False):
             mergelist.append(datasets[instrument])
     return(dataset)
 
-
-'''    
-    print (mergelist)
-    #merge the datasets:
-    if verbose: print('Merging datasets...')
-    dataset = xr.merge(mergelist) #,compat='override') 
-    print('Dataset complete.')
-    return(dataset)
-'''        
 # ----------------------------------------------------------------------
 
-
-
-def instruments_list (instruments_to_use,verbose=False)  : #The arguement is the list of instruments that is to be used. 
+def instruments_list(instruments_to_use,verbose=False)  : 
+    #The arguement is the list of instruments that is to be used. 
     
     #Primary list of instruments, measurements, and interoperable variable names
     # Also, here is where to turn a particular band on or off, using the 'parameters' entry
