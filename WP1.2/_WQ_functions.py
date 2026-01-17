@@ -1514,10 +1514,18 @@ def hue_calculation_old_version(dataset,instrument='msi_agm',test=False,verbose=
 
 #     Revised code 2025-10-07 to cater for non-geomedian situations. 
 
+
+def testfunction():
+    print('testfunction')
+    
 def apply_R_correction(ds,
                        instr_list,
-                       water_mask, drop = True,test=False,verbose=False) :
-        
+                       water_mask, 
+                       drop = True,
+                       test=False,
+                       verbose=False):
+    if test : print('running the r correction...')
+
     dp_adjust_parameters = { 
         'msi': {'ref_var':'msi12' , 'var_list': ['msi04','msi03','msi02','msi01','msi05','msi06', 'msi07']},
         'oli': {'ref_var':'oli07' , 'var_list': ['oli04','oli03','oli02','oli01']},
@@ -1536,7 +1544,7 @@ def apply_R_correction(ds,
             instr   = instr[0:instr.find('_agm')]
         if not    dp_adjust_parameters[instr]['ref_var']+suffix in ds.data_vars:
             instr_list.pop(item_number)    
-
+    if test : print('running the r correction',instr_list,dp_adjust_parameters,'...')
     ds = R_correction(ds=ds,
                       instr_list=instr_list,
                       dp_adjust_parameters=dp_adjust_parameters,
@@ -1554,7 +1562,7 @@ def R_correction(ds,instr_list,dp_adjust_parameters,water_mask,drop=True,verbose
     #-------------------------------------------------------------------------------------------------------------
     # --- the 'dp_adjust' dictionary passed in as an argument controls which variables are used as a reference, and which are changed 
     # --- it is assumed at this point that the relvant variables are in the dataset.  (Checks are done in the calling function).
-    
+    if test : print('hello world')
     for instr in instr_list:
         agm = False;  suffix = ''
         if  instr.find('_agm') > 0 :    
