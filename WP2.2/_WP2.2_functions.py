@@ -14,7 +14,8 @@ import datacube
 sys.path.append('/home/jovyan/dev/deafrica_water_quality/WP1.2')
 from _WQ_functions import trophic_state
 from _WQ_functions import instruments_list  
-from _WQ_functions import *  
+from _WQ_functions import *
+
 #from WQ_functions import NDVI
 #from _WQ_functions import FAI
 #from WQ_functions import NDVI
@@ -265,7 +266,7 @@ def build_dataset (spacetime_domain,
         # --- set zeros to nans and re-scale 
         for var in ds_oli.data_vars:
             ds_oli[var] = xr.where(ds_oli[var]>0,ds_oli[var],np.nan)
-            if not var == 'oli_pq':
+            if not var == 'oli_qa':
                 ds_oli[var] = ((ds_oli[var] * 0.0000275) - 0.2) * 10000
 
         data_list['oli'] = ds_oli
@@ -290,7 +291,7 @@ def build_dataset (spacetime_domain,
         # --- set zeros to nans and re-scale 
         for var in ds_msi.data_vars:
             ds_msi[var] = xr.where(ds_msi[var]>0,ds_msi[var],np.nan)
-            if not var == 'msi_pq':
+            if not var == 'msi_qa':
              ds_msi[var] = ds_msi[var] #- 1000  # offset required for variables other than the pq ??
         
         data_list['msi'] = ds_msi
@@ -316,7 +317,7 @@ def build_dataset (spacetime_domain,
         # --- set zeros to nans and re-scale 
         for var in ds_tm.data_vars:
             ds_tm[var] = xr.where(ds_tm[var]>0,ds_tm[var],np.nan)
-            if not var == 'tm_pq':
+            if not var == 'tm_qa':
                 ds_tm[var] = ((ds_tm[var] * 0.0000275) - 0.2) * 10000
 
         data_list['tm'] = ds_tm
