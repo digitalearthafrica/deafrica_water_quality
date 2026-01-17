@@ -177,7 +177,7 @@ def instruments_list(instruments_to_use,verbose=False)  :
                         'SR_B5' : {'varname': ('oli05')      , 'parameters' : (True,'850-880')},
                         'SR_B6' : {'varname': ('oli06')      , 'parameters' : (True,'1570-1650')},
                         'SR_B7' : {'varname': ('oli07')      , 'parameters' : (True,'2110-2290')},
-                        'pq'    :  {'varname':  ('oli_pq')   , 'parameters' : (True,)},
+                        'pq'    :  {'varname':  ('oli_qa')   , 'parameters' : (True,)},
 
                             },
             'msi_agm' : {
@@ -229,7 +229,7 @@ def instruments_list(instruments_to_use,verbose=False)  :
                         'SR_B4'   : {'varname': ('tm04')      , 'parameters' : (True,'nir   760-900')},
                         'SR_B5'   : {'varname': ('tm05')      , 'parameters' : (True,'swir1 1550-1750')},
                         'SR_B7'   : {'varname': ('tm07')      , 'parameters' : (True,'swir2 2080-2350')},
-                        'pq'      : {'varname': ('tm_pq')     , 'parameters' : (True,)},
+                        'pq'      : {'varname': ('tm_qa')     , 'parameters' : (True,)},
                         },
             'tirs' :   {
                         "st"        : {'varname': ('tirs_st')      , 'parameters' : (True ,'ST_B10, uint16 	Kelvin 	0.0 	[band_10, st, surface_temperature]')},
