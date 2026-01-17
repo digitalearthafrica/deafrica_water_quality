@@ -44,10 +44,14 @@ def determine_water_area (ds,ds_annual):
     ds['data_coverage']   =  (ds.where(~np.isnan(ds.qa_score)).where(water_5yr == 1).qa_score.count(dim=('x','y'))/water_pixel_count)
 
     # --- calculate the proportion of valid observations that pass QA
-    ds['data_qapass']     =  (ds.where(ds.qa_score >0)        .where(water_5yr == 1).qa_score.count(dim=('x','y'))/water_pixel_count)
+    ds['data_qapass']     =  (ds.where(ds.qa_score >0)        .where(water_5yr == 1).qa_score.count(dim=('x','y'))/water_pixel_count) \
+        / ds['data_coverage']
 
     # --- save the water pixel count as a variable in the dataset ...
     ds['water_pixel_count'] = water_pixel_count
+
+    # --- save the water mask within the dataset 
+    ds['water_5yr'] = water_5yr
     return(ds)
     
 # --------------------------------------------------------------------------------
@@ -106,25 +110,19 @@ def NDVI(ds, instrument, test=False):
 # ---------------------------------------------------------------------------------------------
 def calc_ndvi(ds,watermask,threshold = 0.0):
     ds['ndvi'] = ('time','y','x'),np.zeros([ds.qa_score.sizes['time'],ds.qa_score.sizes['y'],ds.qa_score.sizes['x']])*np.nan
-    if 'tm'  in ds.data_vars:    
-        ds['ndvi'].loc[ds.tm ==True] = NDVI(ds.where(ds.ndvi.loc[ds.tm== True]),'tm' )
-    if 'oli' in ds.data_vars:    
-        ds['ndvi'].loc[ds.oli==True] = NDVI(ds.where(ds.ndvi.loc[ds.oli==True]),'oli')
-    if 'msi' in ds.data_vars:    
-        ds['ndvi'].loc[ds.msi==True] = NDVI(ds.where(ds.ndvi.loc[ds.msi==True]),'msi')
-
-    ds['ndvi'] = ds.ndvi.where(ds.ndvi > threshold).where(watermask==1).where(ds.qa_score >0) 
+    for inst in ('tm','oli','msi'):
+        if inst  in ds.data_vars:    
+            ds['ndvi'].loc[ds[inst] ==True] = NDVI(ds.where(ds.ndvi.loc[ds[inst]== True]),inst )
+    # to avoid outliers (in oli) also truncate to the valid range of ndvi, i.e., less than or equal to 1.0
+    ds['ndvi'] = ds.ndvi.where(ds.ndvi > threshold).where(watermask==1).where(ds.qa_score >0).where(ds.ndvi<=1.0) 
     return(ds)
 
 # ---------------------------------------------------------------------------------------------
 def calc_fai(ds,watermask,threshold = 0.0):
     ds['fai'] = ('time','y','x'),np.zeros([ds.qa_score.sizes['time'],ds.qa_score.sizes['y'],ds.qa_score.sizes['x']])*np.nan
-    if 'tm'  in ds.data_vars:    
-        ds['fai'].loc[ds.tm ==True] = FAI(ds.where(ds.fai.loc[ds.tm== True]),'tm' )
-    if 'oli' in ds.data_vars:    
-        ds['fai'].loc[ds.oli==True] = FAI(ds.where(ds.fai.loc[ds.oli==True]),'oli')
-    if 'msi' in ds.data_vars:    
-        ds['fai'].loc[ds.msi==True] = FAI(ds.where(ds.fai.loc[ds.msi==True]),'msi')
+    for inst in ('tm','oli','msi'):
+        if inst  in ds.data_vars:    
+            ds['fai'].loc[ds[inst] ==True] = FAI(ds.where(ds.fai.loc[ds[inst]== True]),inst )
 
     ds['fai'] = ds.fai.where(ds.fai > threshold).where(watermask==1).where(ds.qa_score >0) 
     return(ds)
@@ -136,7 +134,7 @@ def add_vars_and_combine_datasets(data_list):
     # --- setting qa_score to nan, 0 or 1
     for instrument in data_list.keys():
         # --- select the relevant dataset ---
-        ds        = data_list[instrument]
+        ds             = data_list[instrument]
         ds[instrument] = ('time'), np.ones(ds.time.sizes['time']).astype('bool')                    # --- a boolean variable with a value of 'True' ---
         if not 'qa_score' in ds.data_vars:
             ds['qa_score'] = ('time','y','x'), np.zeros([ds.sizes['time'],ds.sizes['y'],ds.sizes['x']]) # --- a "qa_score" variable and set to zero ----
@@ -144,7 +142,7 @@ def add_vars_and_combine_datasets(data_list):
         # --- attempt to set the value of the qa_score, based on the pixel quality data provided with the data.  
         if instrument == 'tm':  
             ds['qa_score'] = xr.where(ds.tm,
-                                      xr.where(np.isnan(ds.tm_qa),np.nan,ds.qa_score),ds.qa_score)   # --- sets the qa_score to nan where there is nodata (should not happen)
+                                      xr.where(np.isnan(ds.tm_qa),np.nan,ds.tm_qa),ds.qa_score)   # --- sets the qa_score to nan where there is nodata (should not happen)
             # --- frankly, this is pretty flaky; I don't trust that the data are consistenly labeled and with TM I am picking specific values
             # ---- values of 5504 should be correct, but 5503 and 5505 also appear. 
         
@@ -153,7 +151,7 @@ def add_vars_and_combine_datasets(data_list):
 
         if instrument == 'oli': 
             ds['qa_score'] = xr.where(ds.oli,
-                                      xr.where(np.isnan(ds.oli_qa),np.nan,ds.qa_score),ds.qa_score)  # --- sets the qa_score to nan where there is no coverage
+                                      xr.where(np.isnan(ds.oli_qa),np.nan,ds.oli_qa),ds.qa_score)  # --- sets the qa_score to nan where there is no coverage
             ds['qa_score'] = xr.where(ds.oli_qa<=21952 , ds.qa_score,0) 
             ds['qa_score'] = xr.where(ds.oli_qa==1 , np.nan , ds.qa_score) #values of 1 are 'fill', set to nan
             # oli qa scores are found here : https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands
@@ -161,7 +159,7 @@ def add_vars_and_combine_datasets(data_list):
 
         if instrument == 'msi': 
             ds['qa_score'] = xr.where(ds.msi,
-                                      xr.where(np.isnan(ds.msi_qa),np.nan,ds.qa_score),ds.qa_score)   # --- sets the qa_score to nan where there is no coverage (should not happen)
+                                      xr.where(np.isnan(ds.msi_qa),np.nan,ds.msi_qa),ds.qa_score)   # --- sets the qa_score to nan where there is no coverage (should not happen)
             ds['qa_score'] = xr.where(ds.msi_qa < 7,ds.qa_score,0)
             ds['qa_score'] = xr.where(ds.msi_qa==1 , np.nan , ds.qa_score) #values of 1 are 'fill', set to nan
 
@@ -245,7 +243,9 @@ def build_dataset (spacetime_domain,
                    measurements, 
                    grid_resolution,
                    resampling_option,
+                   rename_dict,
                    verbose=True) :
+    data_list = {}
     if instruments_to_use['oli']['use']:
         if verbose : print('building the oli dataset...')
         instrument = 'oli'
@@ -357,6 +357,7 @@ def build_dataset (spacetime_domain,
 # ---------------------------------------------------------------------------------------------
 def calc_scale_and_offset(ds,verbose=False):
     # --- a function to calculate the scale and offset for level 0 normalisaton 
+    #     this operates on statistical summaries, not spatial datasets. 
     # --- any variables to not include? I don't think this is needed ...
     exclude = ['chla_tebbs_oli','chla_tebbs_msi','chla_tebbs_tm']
     exclude = []
@@ -379,7 +380,8 @@ def calc_scale_and_offset(ds,verbose=False):
             ref01  = ds.loc[dict(time = (reftime), chla_measure = refalg, quantile=(ds['quantile'][1] ))][var].median().values
             if verbose : print(refmed,ref01)
       
-        
+        # The offset and scale are calculated based on the median values and first percentile values.
+        # When applied, the median and lowest values of the target disctribution should match those of the reference distribution
         for name in (set(ds[var+'_measure'].values) - set(exclude)):
             if var == 'tss':
                 med  = ds.loc[dict(time = (targettime), tss_measure = name, quantile=(ds['quantile'][50]))][var].median().values
