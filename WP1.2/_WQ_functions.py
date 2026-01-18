@@ -439,7 +439,7 @@ def WQ_vars(ds,
             
             if inst in list(instruments.keys()): 
                 if test : print('instrument found',inst)
-                if inst == 'msi_agm' and alg == 'ndci_nir_r' :  #special case here as options are possible
+                if inst in ['msi_agm','msi'] and alg == 'ndci_nir_r' :  #special case here as options are possible
                     for option in params.keys():
                         opparams = params[option]
                         function = opparams['func']
