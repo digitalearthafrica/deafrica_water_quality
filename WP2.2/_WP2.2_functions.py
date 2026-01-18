@@ -36,9 +36,12 @@ def wp22_dummy(s='nonesense'):
 # --- a function to calculate the water_pixel_count (over water areas), 
 # the coveragepercent (over water areas), and 
 # the qapasspercent (of available data over water areas) for each observation 
+# This ASSUMES that the dataset spans only a year or so. A single time is chosen.
 def determine_water_area (ds,ds_annual):
-    year      = pd.DatetimeIndex(ds['time']).year[int(ds.time.size/2)]  # the year at the centre of the monitoring interval
-    water_5yr = ds_annual.water_5yr.sel(time=str(year)).squeeze()       # a data array with xy shape
+    year         = pd.DatetimeIndex(ds['time']).year[int(ds.time.size/2)]  # the year at the centre of the monitoring interval
+    water_5yr    = ds_annual.water_5yr     .sel(time=str(year)).squeeze()   
+    water_annual = ds_annual.wofs_ann_water.sel(time=str(year)).squeeze()   
+    # a data array with xy shape
     water_pixel_count = water_5yr.count()
 
     # --- calculate the proportion of observations that are present and valid, at each time-step
@@ -52,7 +55,8 @@ def determine_water_area (ds,ds_annual):
     ds['water_pixel_count'] = water_pixel_count
 
     # --- save the water mask within the dataset 
-    ds['water_5yr'] = water_5yr
+    ds['water_5yr']    = water_5yr
+    ds['water_ann'] = water_annual
     return(ds)
     
 # --------------------------------------------------------------------------------
@@ -499,10 +503,20 @@ def open_logfile (places_dict,logfilename = 'log.csv' , overwrite='Append',inclu
     return(progress_log)
 
 # ---------------------------------------------------------------------------------------------
-def set_clearwater(ds):   
+def set_clearwater(ds, fai_var, water_5yr_var, water_annual_var):   
 #    ds['clearwater'] = xr.where(np.isnan(ds.agm_fai),xr.where(ds.water_5yr==1,True,False),False)
-    ds['clearwater'] = np.logical_and(np.isnan(ds['agm_fai'])  ,ds['water_5yr']  ==1)
-    ds['clearwater'] = np.logical_and(         ds['clearwater'],ds['wofs_ann_water'])
+    ok = True
+    if not type(ds) == type(xr.Dataset())       : ok = False
+    if not fai_var              in ds.data_vars : ok = False
+    if not water_5yr_var        in ds.data_vars : ok = False
+    if not water_annual_var == None:
+        if not water_annual_var in ds.data_vars : ok = False
+    if not ok:
+        print('set_clearwater -> invalid arguments, ending (dataset unchanged)')
+        return(ds)
+    ds['clearwater']     = np.logical_and(np.isnan(ds[fai_var])  ,ds[water_5yr_var]  ==1)
+    if water_annual_var != None:
+        ds['clearwater'] = np.logical_and(ds['clearwater'],ds[water_annual_var])
     return(ds)
 
 # ---------------------------------------------------------------------------------------------
