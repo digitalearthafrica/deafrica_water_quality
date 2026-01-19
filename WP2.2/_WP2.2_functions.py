@@ -1,3 +1,5 @@
+# these functions developed specifically for WP2.2
+# trying to not overlap with _WQ_functions in WP1.2
 #from _WQ_functions import dummy_function
 # importing required module
 import os
@@ -31,6 +33,52 @@ def wp22_dummy(s='nonesense'):
     trophic_state()
     #instruments_list()
     return()
+
+
+# --------------------------------------------------------------------------------
+def calc_cumulative_distributions(ds,placename,varlist1,varlist2=None):
+    # --- derive the cumulative distributions for all variables 
+    
+    if varlist2 == None : varlist2 = ['fai','ndvi','hue']
+    q_list = np.arange(0.0,1.01,0.01)
+
+    stats      = xr.Dataset(data_vars = None, coords = {'place': [placename],'q': q_list}, )
+    stats['n'] = ('place'), [ds.where(ds.clearwater).clearwater.count().data]
+
+    for varname in varlist1:
+        pass
+        stats[varname] = ('q'),ds[varname].quantile(q_list,dim=('x','y','time')).values
+        stats[varname] = stats[varname].expand_dims('place')    
+    for varname in varlist2:
+        for instr in ['tm','oli','msi']:
+            newname = varname + '_' + instr
+            stats[newname] = ('q'),ds[varname].loc[ds[instr]==True].quantile(q_list,dim=('x','y','time')).data
+            stats[newname] = stats[newname].expand_dims('place')
+    return(stats)
+
+# --------------------------------------------------------------------------------
+def calc_agm_cumulative_distributions(ds,placename,varlist1=None,varlist2=None):
+    # --- derive the cumulative distributions for all variables 
+    # --- this 'agm' version side-steps the inconsistencies in naming that have crept along with the 
+    #     issues arising from the failure to produce etm geomedians.
+    
+    if varlist2 == None : varlist2 = ['agm_fai','agm_ndvi','agm_hue']
+    q_list = np.arange(0.0,1.01,0.01)
+
+    stats      = xr.Dataset(data_vars = None, coords = {'place': [placename],'q': q_list}, )
+    stats['n'] = ('place'), [ds.where(ds.clearwater).clearwater.count().data]
+
+    for varname in varlist1:
+        pass
+        stats[varname] = ('q'),ds[varname].quantile(q_list,dim=('x','y','time')).values
+        stats[varname] = stats[varname].expand_dims('place')    
+    for varname in varlist2:
+        for instr in ['oli','msi']:
+            oldname = instr   + '_' + varname
+            newname = varname + '_' + instr
+            stats[newname] = ('q'),ds[oldname].loc[ds[instr+'_agm']==True].quantile(q_list,dim=('x','y','time')).data
+            stats[newname] = stats[newname].expand_dims('place')
+    return(stats)
 
 # --------------------------------------------------------------------------------
 # --- a function to calculate the water_pixel_count (over water areas), 
