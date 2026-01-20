@@ -5,9 +5,7 @@ import xarray as xr
 from datacube import Datacube
 from datacube.model import Dataset
 from odc.geo.geobox import GeoBox
-from odc.geo.xr import xr_reproject
 
-from water_quality.dates import year_to_dc_datetime
 from water_quality.mapping.instruments import INSTRUMENTS_MEASUREMENTS
 from water_quality.tiling import reproject_tile_geobox
 
@@ -137,9 +135,12 @@ def load_wofs_ann_data(
         return xr.Dataset()
 
     datasets = dss[inst]
-    # TODO: Set a global dask chunk size configuration
     # Expected tile size is 9600 x 9 600 at 10 m resolution
-    dask_chunks = {"x": 4800, "y": 4800, "time": -1}
+    # and 3200 x 3 200 at 30 m resolution
+    # Assuming loading at 10m resolution as default, use
+    # chunk size 4800 x 4800
+    chunk_size = 4800
+    dask_chunks = {"x": chunk_size, "y": chunk_size, "time": -1}
     measurements = get_measurements_name_dict(inst)
     # For int data nearest is preferred
     # bilinear for float data.
@@ -204,9 +205,12 @@ def load_oli_agm_data(
         return xr.Dataset()
 
     datasets = dss[inst]
-    # TODO: Set a global dask chunk size configuration
     # Expected tile size is 9600 x 9 600 at 10 m resolution
-    dask_chunks = {"x": 4800, "y": 4800, "time": -1}
+    # and 3200 x 3 200 at 30 m resolution
+    # Assuming loading at 10m resolution as default, use
+    # chunk size 4800 x 4800
+    chunk_size = 4800
+    dask_chunks = {"x": chunk_size, "y": chunk_size, "time": -1}
     measurements = get_measurements_name_dict(inst)
     # For int data nearest is preferred
     # bilinear for float data.
@@ -331,9 +335,12 @@ def load_msi_agm_data(
         return xr.Dataset()
 
     datasets = dss[inst]
-    # TODO: Set a global dask chunk size configuration
     # Expected tile size is 9600 x 9 600 at 10 m resolution
-    dask_chunks = {"x": 4800, "y": 4800, "time": -1}
+    # and 3200 x 3 200 at 30 m resolution
+    # Assuming loading at 10m resolution as default, use
+    # chunk size 4800 x 4800
+    chunk_size = 4800
+    dask_chunks = {"x": chunk_size, "y": chunk_size, "time": -1}
     measurements = get_measurements_name_dict(inst)
     # For int data nearest is preferred
     # bilinear for float data.
@@ -451,9 +458,12 @@ def load_tm_agm_data(
         return xr.Dataset()
 
     datasets = dss[inst]
-    # TODO: Set a global dask chunk size configuration
     # Expected tile size is 9600 x 9 600 at 10 m resolution
-    dask_chunks = {"x": 4800, "y": 4800, "time": -1}
+    # and 3200 x 3 200 at 30 m resolution
+    # Assuming loading at 10m resolution as default, use
+    # chunk size 4800 x 4800
+    chunk_size = 4800
+    dask_chunks = {"x": chunk_size, "y": chunk_size, "time": -1}
     measurements = get_measurements_name_dict(inst)
     # For int data nearest is preferred
     # bilinear for float data.
@@ -548,7 +558,8 @@ def load_tirs_data(
     Parameters
     ----------
     dss: dict[str, list[Dataset]]
-        A dictionary mapping instruments to a list of datacube datasets available.
+        A dictionary mapping instruments to a list of datacube datasets
+        available.
     tile_geobox : GeoBox
         Defines the location and resolution of a rectangular grid of
         data, including it's crs.
@@ -576,9 +587,23 @@ def load_tirs_data(
         return xr.Dataset()
 
     datasets = dss[inst]
-    # TODO: Set a global dask chunk size configuration
+
+    # Due to memory constraints tirs data must be loaded in its native
+    # resolution of 30 m and later reprojected to the target tile geobox
+    # if upsampling the data.
+    if abs(tile_geobox.resolution.y) < 30:
+        tirs_geobox = reproject_tile_geobox(
+            tile_geobox=tile_geobox, resolution_m=30
+        )
+    else:
+        tirs_geobox = tile_geobox
+
     # Expected tile size is 9600 x 9 600 at 10 m resolution
-    dask_chunks = {"x": 4800, "y": 4800, "time": -1}
+    # and 3200 x 3 200 at 30 m resolution.
+    # since loading at native resolution (30m) is required for surface
+    # temp data, use the chunk size 800 x 800.
+    chunk_size = 800
+    dask_chunks = {"x": chunk_size, "y": chunk_size, "time": -1}
     measurements = get_measurements_name_dict(inst)
     # For int data nearest is preferred
     # bilinear for float data.
@@ -590,7 +615,7 @@ def load_tirs_data(
     ds = dc.load(
         datasets=datasets,
         measurements=list(measurements.keys()),
-        like=tile_geobox,
+        like=tirs_geobox,
         resampling=resampling,
         dask_chunks=dask_chunks,
     )
@@ -611,107 +636,6 @@ def load_tirs_data(
         log.info("Done.")
 
     return ds
-
-
-def load_tirs_annual_composite_data(
-    datasets: list[Dataset],
-    tile_geobox: GeoBox,
-    compute: bool,
-    dc: Datacube,
-) -> xr.Dataset:
-    """Load and process data for the `tirs` instrument to produce an
-    annual composite.
-
-    Parameters
-    ----------
-    datasets : list[Dataset]
-        List of datasets to load data for the instrument `tirs`.
-
-    tile_geobox : GeoBox
-        Defines the location and resolution of a rectangular grid of
-        data, including it's crs.
-
-    compute : bool
-        Whether to compute the dask arrays immediately, by default True.
-        Set to False to keep datasets lazy for memory efficiency.
-
-    dc : Datacube
-        Datacube connection to use when loading data.
-
-    Returns
-    -------
-    xr.Dataset
-        An xarray Dataset containing the surface temperature annual
-        composite produced from data for the instrument `tirs`.
-    """
-    # Due to memory constraints tirs data must be loaded in its native
-    # resolution of 30 m and later reprojected to the target tile geobox
-    # if upsampling the data.
-    if abs(tile_geobox.resolution.y) < 30:
-        native_tirs_geobox = reproject_tile_geobox(
-            tile_geobox=tile_geobox, resolution_m=30
-        )
-        ds_tirs = load_tirs_data(
-            datasets=datasets,
-            tile_geobox=native_tirs_geobox,
-            compute=False,
-            dc=dc,
-        )
-    else:
-        native_tirs_geobox = None
-        ds_tirs = load_tirs_data(
-            datasets=datasets,
-            tile_geobox=tile_geobox,
-            compute=False,
-            dc=dc,
-        )
-
-    # Remove outliers (no data value for surface temp is 0),
-    # apply quality filter
-    # and also filter on emissivity > 0.95
-    valid_mask = (
-        (ds_tirs["tirs_st"] > 0)
-        & (ds_tirs["tirs_st_qa"] < 5)
-        & (ds_tirs["tirs_emis"] > 0.95)
-    )
-    ds_tirs["tirs_st"] = ds_tirs["tirs_st"].where(valid_mask)
-
-    if ds_tirs.chunks is not None:
-        # Rechunk so the time dimension has only one chunk
-        # for the quantile commputation
-        ds_tirs = ds_tirs.chunk({"time": ds_tirs.sizes["time"]})
-
-    annual_ds_tirs = xr.Dataset()
-
-    group = ds_tirs["tirs_st"].groupby("time.year")
-    annual_ds_tirs["tirs_st_ann_med"] = group.median(dim="time")
-
-    quantiles = [0.1, 0.9]
-    quantile_results = group.quantile(quantiles, dim="time")
-    annual_ds_tirs["tirs_st_ann_min"] = quantile_results.sel(quantile=0.1)
-    annual_ds_tirs["tirs_st_ann_max"] = quantile_results.sel(quantile=0.9)
-
-    # Replace the year coordinate with datetime64[ns] time coordinate
-    annual_ds_tirs = annual_ds_tirs.rename({"year": "time"})
-    time_values = np.array(
-        [year_to_dc_datetime(i) for i in annual_ds_tirs.time.values],
-        dtype="datetime64[ns]",
-    )
-    annual_ds_tirs = annual_ds_tirs.assign_coords(time=time_values)
-
-    if native_tirs_geobox is not None:
-        # Reproject to target tile geobox
-        annual_ds_tirs = xr_reproject(
-            annual_ds_tirs,
-            how=tile_geobox,
-            resampling="bilinear",
-        )
-
-    if compute:
-        log.info("Computing tirs annual composite dataset ...")
-        annual_ds_tirs = annual_ds_tirs.compute()
-        log.info("Done.")
-    return annual_ds_tirs
 
 
 def load_annual_data(

@@ -6,18 +6,18 @@ import warnings
 
 import click
 import numpy as np
+import rioxarray  # noqa F401
 import toolz
 import xarray as xr
 from datacube import Datacube
 from deafrica_tools.dask import create_local_dask_cluster
 from odc import dscache
-from odc.geo.xr import write_cog
+from odc.geo.xr import assign_crs, write_cog
 from odc.stats.model import DateTimeRange
 
 from water_quality.io import (
     check_directory_exists,
     get_filesystem,
-    get_parent_dir,
     get_wq_cog_url,
     get_wq_csv_url,
     get_wq_dataset_path,
@@ -37,6 +37,7 @@ from water_quality.mapping.load_data import load_annual_data
 from water_quality.mapping.ndvi import geomedian_NDVI
 from water_quality.mapping.optical_water_type import run_OWT
 from water_quality.mapping.pixel_correction import apply_R_correction
+from water_quality.mapping.temperature import water_temperature
 from water_quality.mapping.water_detection import (
     clear_water_mask,
     five_year_water_mask,
@@ -166,7 +167,7 @@ def cli(
     all_task_ids = sorted([i[0] for i in cache.tiles(grid_name)])
 
     if tasks and tiles:
-        raise ValueError("Use either tasks or tiles, not both.")
+        raise ValueError("Use either --tasks or --tiles, not both.")
     else:
         if tasks or tiles:
             if tasks:
@@ -212,6 +213,7 @@ def cli(
         temporal_id, tile_idx, tile_idy = task_id
         tile_id = (tile_idx, tile_idy)
         task_id_str = create_task_id(temporal_id, tile_id)
+        tile_geobox = grid_spec.tile_geobox(tile_index=tile_id)
         log.info(
             f"Processing task {idx + 1} of {len(tasks_to_run)}: {task_id_str} "
         )
@@ -248,7 +250,6 @@ def cli(
             dss = toolz.groupby(
                 lambda ds: input_products[ds.product.name], dss
             )
-            tile_geobox = grid_spec.tile_geobox(tile_index=tile_id)
 
             # Load annual data for all instruments
             annual_data = load_annual_data(
@@ -263,6 +264,13 @@ def cli(
             # Generate 5 year water mask
             wq_ds["water_mask"] = five_year_water_mask(
                 annual_data=annual_data,
+                compute=True,
+            )
+            gc.collect()
+
+            wq_ds["water_temp"] = water_temperature(
+                annual_data=annual_data,
+                water_mask=wq_ds["water_mask"],
                 compute=True,
             )
             gc.collect()
@@ -306,7 +314,7 @@ def cli(
 
             # Functions beyond this point do not make provisions for
             # uncorrected data i.e. the original band being present plus
-            # the corrrected band (e.g. msi04_agm and msi04_agmr). Always
+            # the corrected band (e.g. msi04_agm and msi04_agmr). Always
             # drop the uncorrected bands after applying the R correction.
 
             # Calculate the Hue for the available instruments.
@@ -341,11 +349,16 @@ def cli(
                     name = ds.name
                     ds = ds.to_dataset(name=name)
 
+                no_crs = ds.rio.crs is None
+                if no_crs:
+                    ds = assign_crs(ds, tile_geobox.crs)
+
                 # Save each band as COG
                 fs = get_filesystem(output_directory, anon=False)
                 bands = list(ds.data_vars.keys())
                 for band in bands:
                     da = ds[band]
+
                     if da.size == 0:
                         continue
                     # Set attributes

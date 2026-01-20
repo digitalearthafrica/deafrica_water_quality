@@ -7,6 +7,7 @@ import logging
 
 import numpy as np
 import xarray as xr
+from odc.geo.xr import assign_crs
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +47,8 @@ def five_year_water_mask(
         return xr.DataArray(data=[], dims=["time"], coords={"time": []})
 
     inst_ds = annual_data[inst]
+    geobox = inst_ds.odc.geobox
+
     # Calculate the ratio of clear wet observations to total clear
     # observations for each pixel over the 5 year period.
     clearcount_sum = inst_ds["wofs_ann_clearcount"].sum(
@@ -73,6 +76,10 @@ def five_year_water_mask(
     water_mask_da = water_mask_da.expand_dims(
         time=[inst_ds.isel(time=-1).time.values]
     )
+
+    no_crs = water_mask_da.rio.crs is None
+    if no_crs:
+        water_mask_da = assign_crs(water_mask_da, geobox.crs)
 
     if compute:
         log.info("\tComputing water mask ...")
