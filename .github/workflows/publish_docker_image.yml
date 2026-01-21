@@ -2,14 +2,13 @@ name: Build and Push Image
 
 env:
   IMAGE_NAME: deafrica-water-quality
-  BRANCH_NAME: develop
 
 on:
   workflow_dispatch:
 
 jobs:
   push-if-main:
-    if:  ${{ github.ref == 'refs/heads/${{ env.BRANCH_NAME }}' }}
+    if:  ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,7 +35,7 @@ jobs:
           images: ${{ secrets.DEAFRICA_DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/${{ env.BRANCH_NAME }}' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/develop' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
