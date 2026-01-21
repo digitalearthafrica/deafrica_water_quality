@@ -1,14 +1,15 @@
 name: Build and Push Image
 
 env:
-  IMAGE_NAME: victorianeema/deafrica-water-quality
+  IMAGE_NAME: deafrica-water-quality
+  BRANCH_NAME: develop
 
 on:
-  workflow_dispatch: # This makes it triggerable only manually
+  workflow_dispatch:
 
 jobs:
   push-if-main:
-    if: github.ref == 'refs/heads/develop'
+    if:  ${{ github.ref == 'refs/heads/${{ env.BRANCH_NAME }}' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,9 +29,14 @@ jobs:
           username: ${{ secrets.DEAFRICA_DOCKER_USERNAME }}
           password: ${{ secrets.DEAFRICA_DOCKER_PASSWORD }}
 
-      - name: Get version number for tagging the image
-        run: |
-          echo "VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DEAFRICA_DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/${{ env.BRANCH_NAME }}' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -39,4 +45,5 @@ jobs:
           file: ./docker/Dockerfile
           build-args: BUILD_ENV=prod
           push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
