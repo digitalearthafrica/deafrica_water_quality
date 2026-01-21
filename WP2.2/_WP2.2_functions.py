@@ -533,7 +533,7 @@ def open_logfile (places_dict,logfilename = 'log.csv' , overwrite='Append',inclu
         progress_log['Year2'] = int(0)
         progress_log.to_csv(logfilename)
         
-    else : progress_log = pd.read_csv(logfilename)
+    else : progress_log = pd.read_csv(logfilename,index_col=0)
     if overwrite == 'Append':
         print('appending')
         placelist  = []
