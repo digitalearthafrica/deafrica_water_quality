@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import gc   # garbage collection
 import pandas as pd
 import datacube
+import scipy as sp
 
 #---------------------------------------------------------------------------------------
 # this function  adjusts the values of an array  
@@ -20,11 +21,11 @@ def harmonise_for_instrument(da,           # the input data array
                              test = False,   # test flag; this also changes the behaviour of the function 
                             ): 
     # --- find the target variable
-    if not varname in list(lookup.target):
+    if not varname in list(lookup_table.target):
         print(varname+' not found, data unchanged')
         return(da)
  
-    refname = lookup[lookup.target==varname]['reference'].item()   
+    refname = lookup_table[lookup_table.target==varname]['reference'].item()   
     if test: print(varname,refname)
     if refname == varname:
         if test: print('data will be unchanged')
