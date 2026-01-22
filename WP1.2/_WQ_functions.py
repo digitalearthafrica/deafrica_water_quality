@@ -7,6 +7,58 @@ import gc   # garbage collection
 import pandas as pd
 import datacube
 
+#---------------------------------------------------------------------------------------
+# this function  adjusts the values of an array  
+#     - the adjustment aims to remove biases between the values observed from different instruments
+#     - it works by adjusting the observations based on the observed distributions of the target and reference variable
+#     - the adjustment is based on a large dataset of measurements taken over waterbodies in Africa using DEA data.
+# 
+def harmonise_for_instrument(da,           # the input data array
+                             varname,      # the name of the variable as it appears in the lookup table
+                             lookup_table, # the lookup table (a pandas data frame) used to find the reference variable that corresponds to the variable
+                             distributions, # the dataset of cumulatibve probability distributions used to determine the transformation
+                             test = False,   # test flag; this also changes the behaviour of the function 
+                            ): 
+    # --- find the target variable
+    if not varname in list(lookup.target):
+        print(varname+' not found, data unchanged')
+        return(da)
+ 
+    refname = lookup[lookup.target==varname]['reference'].item()   
+    if test: print(varname,refname)
+    if refname == varname:
+        if test: print('data will be unchanged')
+        return(da)
+
+    Q              = distributions.q 
+    method = 'quadratic'    # quadratic may be okay but should not be necessary and can introduce problems at the distribution tails
+    method = 'linear'    
+
+    # i,j,k,l control which parts of the distribution we  mnodel - conclude after experimentation that issues arise if the full
+    #         distribution is not used
+    
+    # --- fit a model to X; ie Q = f(x); limit the valid range of the function with excess values being set to 0 or 1
+    i,j = 0,101  
+    f = sp.interpolate.interp1d(distributions[varname][i:j],Q[i:j],kind=method,bounds_error = False,fill_value = (0,1))    
+
+    # --- fit an inverse model to Y; ie Y = g(Q). 
+    k,l = 0,101  
+    g = sp.interpolate.interp1d(Q[k:l],distributions[refname][k:l],kind=method,bounds_error=False)
+
+    # --- given the functions f and g, the required adjustment is g(f(x)) ----------------
+    
+    # --- create a new variable as a data array that matches the one provided, so that we can return a nice array
+    if test and False:
+        print('returning functions as well as data')
+        return(
+            xr.DataArray(data=g(f(da)), dims=da.dims,coords = da.coords,name = da.name+'_h'),f,g
+        )    # --- create a new variable as a data array that matches the one provided, so that we can return a nice array
+    return(
+        xr.DataArray(data=g(f(da)), dims=da.dims,coords = da.coords,name = da.name+'_h')
+        )
+
+
+
 # ----------------------------------------------------------------------------
 # this function moved here from the Build_annual_datasets notebook
 def process_st_data_to_annual(ds_tirs,ds_wofs_ann,verbose=True,test=True):
@@ -1779,6 +1831,13 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'HC_4'           :  {'run':False, "xyt" :{"x": (32.85, 32.87    ),  "y" : ( -2.61 , -2.57    ) ,"time": (year1,year2)  },"desc": "lake Victoria lake stations -- TZA 15 -2.5908	32.86835"},
         'HC_5'           :  {'run':False, "xyt" :{"x": (-6.7502, -6.7473),  "y" : ( 33.9308 , 33.9347) ,"time": (year1,year2)  },"desc": "Morocco near Rabbat -- MAR 00002  -6.75 33.93333 "},
         'HC_6'           :  {'run':False, "xyt" :{"x": (-7.6360, -7.6308),  "y" : ( 32.4727 , 33.4758) ,"time": (year1,year2)  },"desc": "Morocco -- MAR 00003  -6.75 32.93333 "},
+        'Bizerte_Lake'   :  {'run':True, "xyt" :{"x" : ( 9.7790,  9.9460), 	"y" : (37.128,	37.2460)   ,"time": (year1,year2)  },"desc": "Tunisia"},
+        'Nickel_Lake'    :  {'run':True, "xyt" :{"x" : ( 9.56  ,  9.76  ), 	"y" : (37.10 ,	37.21  )   ,"time": (year1,year2)  },"desc": "Tunisia"},
+        'Lake_Aheme'     :  {'run':True, "xyt" :{"x" : ( 1.9090,  2.0090), 	"y" : (6.381,	6.6080)    ,"time": (year1,year2)  },"desc": "Benin"},
+        'Lake_Nokoue'    :  {'run':True, "xyt" :{"x" : ( 2.3360,  2.5720), 	"y" : (6.377,	6.5240)    ,"time": (year1,year2)  },"desc": "Benin, coastal lake"},
+        'Lake_Tanganyika':  {'run':True, "xyt" :{"x" : (30.3440, 31.3050), 	"y" : (-8.860,	-7.4700)   ,"time": (year1,year2)  },"desc": "Tanzania / Malawi / DRC"},
+        'Lake_Rukwa'     :  {'run':True, "xyt" :{"x" : (31.6500, 32.9800), 	"y" : (-8.500,	-7.3600)   ,"time": (year1,year2)  },"desc": "Tanzania"},
+
         }
 
      #Manyara is a shallow alkaline lake 10 feet deep. https://wildlifesafaritanzania.com/facts-about-lake-manyara-national-park/
