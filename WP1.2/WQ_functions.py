@@ -1436,7 +1436,7 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'Lake_Malombe'   :  {'run':True, "xyt" :{"x": (  35.15 ,  35.35),   "y" : ( - 14.8, -14.50   ) ,"time": (year1,year2)  },"desc": "Malawi - Lake Malombe"},
         'Lake_Piti'      :  {'run':True, "xyt" :{"x": (  32.85 ,  32.90),   "y" : ( - 26.6, -26.50   ) ,"time": (year1,year2)  },"desc": "Mozambique - Lake Piti"},
         'Maputo_reserve' :  {'run':True, "xyt" :{"x": (  32.79 ,  32.83),   "y" : ( - 26.55, -26.50  ) ,"time": (year1,year2)  },"desc": "Mozambique - Maputo reserve"},
-        'Indian_Ocean'   :  {'run':True, "xyt" :{"x": (  57.75 ,  57.80),   "y" : ( - 20.5 , -20.45  ) ,"time": (year1,year2)  },"desc": "Mauritius - Oceanic waters"},
+        'Indian_Ocean'   :  {'run':False, "xyt" :{"x": (  57.75 ,  57.80),   "y" : ( - 20.5 , -20.45  ) ,"time": (year1,year2)  },"desc": "Mauritius - Oceanic waters, TM data are generally missing"},
         'Mare_Vacoas'    :  {'run':True, "xyt" :{"x": (  57.48 ,  57.52),   "y" : ( - 20.38 , -20.36 ) ,"time": (year1,year2)  },"desc": "Mauritius - Mare aux Vacoas"},
         'Naute'          :  {'run':True, "xyt" :{"x": (  17.93 ,  18.05),   "y" : ( - 26.97 , -26.92 ) ,"time": (year1,year2)  },"desc": "Namibia - Naute reserve"},
         'Lake_Turkana'   :  {'run':True, "xyt" :{"x": (  35.80 ,  36.72),   "y" : (    2.38 ,   4.79 ) ,"time": (year1,year2)  },"desc": "Kenya -- Lake Turkana"},
