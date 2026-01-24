@@ -408,12 +408,10 @@ def build_dataset (spacetime_domain,
     
 
 # ---------------------------------------------------------------------------------------------
-def calc_scale_and_offset(ds,verbose=False):
+def calc_scale_and_offset(ds,exclude=[],verbose=False):
     # --- a function to calculate the scale and offset for level 0 normalisaton 
     #     this operates on statistical summaries, not spatial datasets. 
     # --- any variables to not include? I don't think this is needed ...
-    exclude = ['chla_tebbs_oli','chla_tebbs_msi','chla_tebbs_tm']
-    exclude = []
     refalgs = {}
     refalgs['chla'] = 'chla_modis2b_msi'
     refalgs['tss' ] = 'tsm_lym_oli'
