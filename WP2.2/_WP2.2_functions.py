@@ -408,7 +408,7 @@ def build_dataset (spacetime_domain,
     
 
 # ---------------------------------------------------------------------------------------------
-def calc_scale_and_offset(ds,exclude=[],verbose=False):
+def calc_scale_and_offset(ds,verbose=False):
     # --- a function to calculate the scale and offset for level 0 normalisaton 
     #     this operates on statistical summaries, not spatial datasets. 
     # --- any variables to not include? I don't think this is needed ...
@@ -433,7 +433,7 @@ def calc_scale_and_offset(ds,exclude=[],verbose=False):
       
         # The offset and scale are calculated based on the median values and first percentile values.
         # When applied, the median and lowest values of the target disctribution should match those of the reference distribution
-        for name in (set(ds[var+'_measure'].values) - set(exclude)):
+        for name in ds[var+'_measure'].values:
             if var == 'tss':
                 med  = ds.loc[dict(time = (targettime), tss_measure = name, quantile=(ds['quantile'][50]))][var].median().values
                 q_01 = ds.loc[dict(time = (targettime), tss_measure = name, quantile=(ds['quantile'][ 1]))][var].median().values
