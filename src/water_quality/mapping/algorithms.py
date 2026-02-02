@@ -718,8 +718,19 @@ def WQ_vars(
         )
         return ds, all_wq_vars_df
     else:
-        # Add the normalisation parameters as attributes to each variable
         ds = xr.merge([chla_ds, tsm_ds])
+
+        if compute:
+            log.info(
+                "\tComputing TSM and Chla water quality variables dataset ..."
+            )
+            ds = ds.compute()
+
+        log.info(
+            "Returning all water quality variables without stacking."
+            "Normalisation parameters have not been applied but are added as attributes."
+        )
+
         for band in list(ds.data_vars):
             if band in NORMALISATION_PARAMETERS.keys():
                 scale = NORMALISATION_PARAMETERS[band]["scale"]
