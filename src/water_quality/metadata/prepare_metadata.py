@@ -25,7 +25,6 @@ from water_quality.io import (
     is_local_path,
     parse_wq_cog_url,
 )
-from water_quality.mapping.algorithms import NORMALISATION_PARAMETERS
 from water_quality.metadata.easi_assemble import EasiPrepare
 
 log = logging.getLogger(__name__)
@@ -62,14 +61,6 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
                 measurement_path
             )
 
-            scale_and_offset = NORMALISATION_PARAMETERS.get(band, None)
-            if scale_and_offset is not None:
-                scale_factor = scale_and_offset["scale"]
-                add_offset = scale_and_offset["offset"]
-            else:
-                scale_factor = 1.0
-                add_offset = 0.0
-
             exists = any(item.get("name") == band for item in measurements)
             if exists:
                 continue
@@ -78,8 +69,8 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
                 measurement_info["dtype"] = "float32"
                 measurement_info["nodata"] = "NaN"
                 measurement_info["units"] = "1"
-                measurement_info["scale_factor"] = scale_factor
-                measurement_info["add_offset"] = add_offset
+                measurement_info["scale_factor"] = 1.0
+                measurement_info["add_offset"] = 0.0
 
                 measurements.append(measurement_info)
 
@@ -142,14 +133,6 @@ def get_dummy_product_yaml(
         measurement_info = {}
         product_name, _, _, band = parse_wq_cog_url(measurement_path)
 
-        scale_and_offset = NORMALISATION_PARAMETERS.get(band, None)
-        if scale_and_offset is not None:
-            scale_factor = scale_and_offset["scale"]
-            add_offset = scale_and_offset["offset"]
-        else:
-            scale_factor = 1.0
-            add_offset = 0.0
-
         exists = any(item.get("name") == band for item in measurements)
         if exists:
             continue
@@ -158,8 +141,8 @@ def get_dummy_product_yaml(
             measurement_info["dtype"] = "float32"
             measurement_info["nodata"] = "NaN"
             measurement_info["units"] = "1"
-            measurement_info["scale_factor"] = scale_factor
-            measurement_info["add_offset"] = add_offset
+            measurement_info["scale_factor"] = 1.0
+            measurement_info["add_offset"] = 0.0
 
             measurements.append(measurement_info)
 
