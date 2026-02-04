@@ -610,7 +610,7 @@ def add_normalization_attributes(input_ds: xr.Dataset) -> xr.Dataset:
                 "normalisation_era_factor": row.era_factor,
                 "wq_var_group": row.var,
             }
-            input_ds.attrs.update(normalization_attrs)
+            input_ds[row.measurement].attrs.update(normalization_attrs)
 
     log.info(
         "Addition of normalization parameters as attributes to water quality variables complete."
