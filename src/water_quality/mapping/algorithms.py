@@ -4,6 +4,7 @@ to EO data from a set of instruments.
 """
 
 import logging
+from importlib.resources import files
 from typing import Any
 
 import numpy as np
@@ -226,36 +227,6 @@ def TSS_GreenRedBlue(
         scale_factor=scale_factor,
         with_model=False,
     )
-
-
-# =============================================================================
-# Normalization Parameters
-# =============================================================================
-NORMALISATION_PARAMETERS = {
-    "ndssi_rg_msi_agm": {"scale": 83.711, "offset": 56.756},
-    "ndssi_rg_oli_agm": {"scale": 45.669, "offset": 45.669},
-    "ndssi_rg_tm_agm": {"scale": 149.21, "offset": 57.073},
-    "ndssi_bnir_oli_agm": {"scale": 37.125, "offset": 37.125},
-    "ti_yu_oli_agm": {"scale": 6.656, "offset": 36.395},
-    "ti_yu_tm_agm": {"scale": 8.064, "offset": 42.562},
-    "tsm_lym_oli_agm": {"scale": 1.0, "offset": 0.0},
-    "tsm_lym_msi_agm": {"scale": 14.819, "offset": -118.137},
-    "tsm_lym_tm_agm": {"scale": 1.184, "offset": -2.387},
-    "tss_zhang_msi_agm": {"scale": 18.04, "offset": 0.0},
-    "tss_zhang_oli_agm": {"scale": 10.032, "offset": 0.0},
-    "spm_qiu_oli_agm": {"scale": 1.687, "offset": -0.322},
-    "spm_qiu_tm_agm": {"scale": 2.156, "offset": -16.863},
-    "spm_qiu_msi_agm": {"scale": 2.491, "offset": -4.112},
-    "ndci_msi54_agm": {"scale": 131.579, "offset": 21.737},
-    "ndci_msi64_agm": {"scale": 33.153, "offset": 33.153},
-    "ndci_msi74_agm": {"scale": 33.516, "offset": 33.516},
-    "ndci_tm43_agm": {"scale": 53.157, "offset": 28.088},
-    "ndci_oli54_agm": {"scale": 38.619, "offset": 29.327},
-    "chla_meris2b_msi_agm": {"scale": 1.148, "offset": -36.394},
-    "chla_modis2b_msi_agm": {"scale": 0.22, "offset": 7.139},
-    "chla_modis2b_tm_agm": {"scale": 1.209, "offset": -63.141},
-    "ndssi_bnir_tm_agm": {"scale": 37.41, "offset": 37.41},
-}
 
 
 # =============================================================================
@@ -571,6 +542,82 @@ def run_wq_algorithms(
     return wq_vars_ds
 
 
+def normalize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
+    """
+    Normalize water quality variables in the input dataset
+    using the provided normalization parameters.
+
+    Parameters
+    ----------
+    input_ds : xr.Dataset
+        Dataset containing water quality variables to be normalized.
+
+    Returns
+    -------
+    xr.Dataset
+        Input dataset with normalized water quality variables.
+    """
+    log.info(
+        "Applying normalisation parameters to provided water quality variables"
+    )
+    normalization_params_fp = files("water_quality.data").joinpath(
+        "normalisation_paramters.csv"
+    )
+    normalization_params = pd.read_csv(normalization_params_fp)
+
+    for row in normalization_params.itertuples():
+        if row.measurement in list(input_ds.data_vars):
+            input_ds[row.measurement] = (
+                input_ds[row.measurement] * row.scale
+                + row.offset * row.era_factor
+            )
+            input_ds[row.measurement].attrs["wq_var_group"] = row.var
+
+    log.info("Normalization of water quality variables complete.")
+    return input_ds
+
+
+def add_normalization_attributes(input_ds: xr.Dataset) -> xr.Dataset:
+    """
+    Add the scale, offset, and era factor requried to normalize a
+    water quality variable as attributes to the appropriate
+    variables in the input dataset from the provided normalization parameters.
+
+    Parameters
+    ----------
+    input_ds : xr.Dataset
+        Dataset containing water quality variables to be normalized.
+
+    Returns
+    -------
+    xr.Dataset
+        Input dataset with normalization parameters added to the specified bands
+        as attributes.
+    """
+    log.info(
+        "Adding normalisation parameters as attributes to water quality variables"
+    )
+    normalization_params_fp = files("water_quality.data").joinpath(
+        "normalisation_paramters.csv"
+    )
+    normalization_params = pd.read_csv(normalization_params_fp)
+
+    for row in normalization_params.itertuples():
+        if row.measurement in list(input_ds.data_vars):
+            normalization_attrs = {
+                "normalisation_scale": row.scale,
+                "normalisation_offset": row.offset,
+                "normalisation_era_factor": row.era_factor,
+                "wq_var_group": row.var,
+            }
+            input_ds.attrs.update(normalization_attrs)
+
+    log.info(
+        "Addition of normalization parameters as attributes to water quality variables complete."
+    )
+    return input_ds
+
+
 def compute_trophic_state_index(chla_da: xr.DataArray) -> xr.DataArray:
     """
     Compute the Trophic State Index from the Chlorophyll-a (µg/l) values.
@@ -673,15 +720,11 @@ def WQ_vars(
     all_wq_vars_df = pd.concat([tsm_df, chla_df], axis=1)
 
     if stack_wq_vars:
-        log.info(
-            "Applying normalisation parameters to water quality variables"
-        )
+        log.info("Applying harmonization for instruments ")
+        # TODO: Add harmonization step here
+
         for ds in [tsm_ds, chla_ds]:
-            for band in list(ds.data_vars):
-                if band in NORMALISATION_PARAMETERS.keys():
-                    scale = NORMALISATION_PARAMETERS[band]["scale"]
-                    offset = NORMALISATION_PARAMETERS[band]["offset"]
-                    ds[band] = ds[band] * scale + offset
+            ds = normalize_wq_variables(ds)
 
         log.info("Stacking water quality variables ...")
         # Stack the TSM water quality variables.
@@ -726,16 +769,8 @@ def WQ_vars(
             )
             ds = ds.compute()
 
-        log.info(
-            "Returning all water quality variables without stacking."
-            "Normalisation parameters have not been applied but are added as attributes."
-        )
+        log.info("Returning all water quality variables without stacking.")
 
-        for band in list(ds.data_vars):
-            if band in NORMALISATION_PARAMETERS.keys():
-                scale = NORMALISATION_PARAMETERS[band]["scale"]
-                offset = NORMALISATION_PARAMETERS[band]["offset"]
-                ds[band].attrs["normalisation_scale"] = scale
-                ds[band].attrs["normalisation_offset"] = offset
+        ds = add_normalization_attributes(ds)
 
         return ds, all_wq_vars_df
