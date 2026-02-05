@@ -704,27 +704,30 @@ def harmonize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
         if ref_var == target_var:
             continue
         else:
-            Q = distributions.q
-            method = "linear"
+            if target_var not in list(input_ds.data_vars):
+                continue
+            else:
+                Q = distributions.q
+                method = "linear"
 
-            i, j = 0, 101
-            f = sp.interpolate.interp1d(
-                distributions[target_var][i:j],
-                Q[i:j],
-                kind=method,
-                bounds_error=False,
-                fill_value=(0, 1),
-            )
+                i, j = 0, 101
+                f = sp.interpolate.interp1d(
+                    distributions[target_var][i:j],
+                    Q[i:j],
+                    kind=method,
+                    bounds_error=False,
+                    fill_value=(0, 1),
+                )
 
-            k, l = 0, 101
-            g = sp.interpolate.interp1d(
-                Q[k:l],
-                distributions[ref_var][k:l],
-                kind=method,
-                bounds_error=False,
-            )
+                k, l = 0, 101
+                g = sp.interpolate.interp1d(
+                    Q[k:l],
+                    distributions[ref_var][k:l],
+                    kind=method,
+                    bounds_error=False,
+                )
 
-            input_ds[target_var][:] = g(f(input_ds[target_var]))
+                input_ds[target_var][:] = g(f(input_ds[target_var]))
 
     return input_ds
 
