@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import warnings
+from importlib.resources import files
 
 import click
 import numpy as np
@@ -49,7 +50,7 @@ from water_quality.tasks import (
     filter_tasks_by_tile_id,
     split_tasks,
 )
-from water_quality.mapping.harmonization import harmonise_for_instrument
+
 
 def setup_dask_if_needed():
     """Start local Dask cluster in Sandbox, else return None."""
@@ -341,12 +342,6 @@ def cli(
                 stack_wq_vars=False,
             )
             gc.collect()
-
-            # Harmonization test
-            wq_ds["tsm_chla_tsi"] = harmonise_for_instrument(
-                input_wq_ds=wq_ds["tsm_chla_tsi"],
-                varname="tsm")
-            # TODO: Check for scaling it translates here.
 
             measurement_paths: list[str] = []
             for wq_var_group in list(wq_ds.keys()):

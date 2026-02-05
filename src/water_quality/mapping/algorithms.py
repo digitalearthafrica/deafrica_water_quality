@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import scipy as sp
 import xarray as xr
 
 log = logging.getLogger(__name__)
@@ -656,10 +657,81 @@ def compute_trophic_state_index(chla_da: xr.DataArray) -> xr.DataArray:
     return tsi
 
 
+def harmonize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
+    """Adjust the water quality variables listed in the look up table.
+
+    The adjustment aims to remove biases between the values observed
+    from different instruments. It works by adjusting the observations based on
+    the observed distributions of the target and reference variable. The
+    adjustment is based on a large dataset of measurements taken over
+    waterbodies in Africa using DEA data.
+
+    Parameters
+    ----------
+    input_ds : xr.Dataset
+        Dataset containing all computed water quality variables as separate
+        variables.
+
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing the harmonized water quality variables, with the
+        same variable names as the input dataset.
+    """
+    lookup_table_fp = files("water_quality.data").joinpath(
+        "targ_ref_lookup.csv"
+    )
+    lookup_table = pd.read_csv(lookup_table_fp, index_col=0)
+
+    distributions_fp = files("water_quality.data").joinpath(
+        "measurment_distributions.nc"
+    )
+    distributions = xr.open_dataset(distributions_fp, engine="h5netcdf")
+
+    # Scipy interpolation expects a numpy array as input hence dask arrays are
+    # computed here.
+    is_dask = input_ds.chunks != {}
+    if is_dask:
+        log.info("\tComputing input dataset ...")
+        input_ds = input_ds.compute()
+        log.info("\tDask compute complete.")
+
+    for row in lookup_table.itertuples():
+        ref_var = row.reference
+        target_var = row.target
+
+        if ref_var == target_var:
+            continue
+        else:
+            Q = distributions.q
+            method = "linear"
+
+            i, j = 0, 101
+            f = sp.interpolate.interp1d(
+                distributions[target_var][i:j],
+                Q[i:j],
+                kind=method,
+                bounds_error=False,
+                fill_value=(0, 1),
+            )
+
+            k, l = 0, 101
+            g = sp.interpolate.interp1d(
+                Q[k:l],
+                distributions[ref_var][k:l],
+                kind=method,
+                bounds_error=False,
+            )
+
+            input_ds[target_var][:] = g(f(input_ds[target_var]))
+
+    return input_ds
+
+
 def WQ_vars(
     annual_data: dict[str, xr.Dataset],
     water_mask: xr.DataArray,
-    compute: bool,
     stack_wq_vars: bool = True,
 ) -> tuple[xr.Dataset, pd.DataFrame]:
     """
@@ -683,10 +755,6 @@ def WQ_vars(
         If False, return all computed water quality variables as separate
         variables in the output dataset and a DataFrame listing the
         variables that should be stacked to "tsm" and "chla", by default True.
-    compute : bool, optional
-        Whether to compute the dask arrays immediately after stacking,
-        by default False. Set to False to keep datasets lazy for memory
-        efficiency.
 
     Returns
     -------
@@ -710,24 +778,30 @@ def WQ_vars(
     tsm_ds = run_wq_algorithms(
         instrument_data=annual_data, algorithms_group=ALGORITHMS_TSM
     )
+    log.info("Harmonizing TSM water quality variables ...")
+    # If dask backed arrays are present, during harmonization the dask arrays
+    # are computed which takes approximately 30 minutes for a single tile.
+    tsm_ds = harmonize_wq_variables(tsm_ds)
+    log.info("Normalizing TSM water quality variables ...")
+    tsm_ds = normalize_wq_variables(tsm_ds)
+
     log.info("Running Chla water quality algorithms ...")
     chla_ds = run_wq_algorithms(
         instrument_data=annual_data, algorithms_group=ALGORITHMS_CHLA
     )
+    log.info("Harmonizing Chla water quality variables ...")
+    # If dask backed arrays are present, during harmonization the dask arrays
+    # are computed which takes approximately 30 minutes for a single tile.
+    chla_ds = harmonize_wq_variables(chla_ds)
+    log.info("Normalizing Chla water quality variables ...")
+    chla_ds = normalize_wq_variables(chla_ds)
 
     tsm_df = pd.DataFrame({"tsm_measures": list(tsm_ds.data_vars)})
     chla_df = pd.DataFrame({"chla_measures": list(chla_ds.data_vars)})
     all_wq_vars_df = pd.concat([tsm_df, chla_df], axis=1)
 
     if stack_wq_vars:
-        log.info("Applying harmonization for instruments ")
-        # TODO: Add harmonization step here
-
-        for ds in [tsm_ds, chla_ds]:
-            ds = normalize_wq_variables(ds)
-
         log.info("Stacking water quality variables ...")
-        # Stack the TSM water quality variables.
         tsm_da = tsm_ds.to_stacked_array(
             new_dim="tsm_measures",
             sample_dims=list(tsm_ds.dims),
@@ -736,7 +810,6 @@ def WQ_vars(
         )
         tsm_da.attrs = {}
 
-        # Stack the Chla water quality variables.
         chla_da = chla_ds.to_stacked_array(
             new_dim="chla_measures",
             sample_dims=list(chla_ds.dims),
@@ -746,31 +819,17 @@ def WQ_vars(
         chla_da.attrs = {}
         log.info("Get median of tss and chla measurements for water pixels")
         # Since median is a non local operation, a compute is triggered here
-        # which takes approximately 30 minutes for a single tile
+        # which takes approximately 30 minutes for a single tile.
         tsm_da = tsm_da.median(dim="tsm_measures").where(water_mask == 1)
         chla_da = chla_da.median(dim="chla_measures").where(water_mask == 1)
         tsi_da = compute_trophic_state_index(chla_da)
 
         ds = xr.Dataset({"tsm": tsm_da, "chla": chla_da, "tsi": tsi_da})
-
-        if compute:
-            log.info("\tComputing TSM, Chla, and TSI dataset ...")
-            ds = ds.compute()
         log.info(
-            "TSM, Chla, and TSI water quality variables computation done."
+            "Stacking TSM, Chla, and TSI water quality variables is complete."
         )
         return ds, all_wq_vars_df
     else:
         ds = xr.merge([chla_ds, tsm_ds])
-
-        if compute:
-            log.info(
-                "\tComputing TSM and Chla water quality variables dataset ..."
-            )
-            ds = ds.compute()
-
         log.info("Returning all water quality variables without stacking.")
-
-        ds = add_normalization_attributes(ds)
-
         return ds, all_wq_vars_df
