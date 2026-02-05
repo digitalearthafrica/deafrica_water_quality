@@ -558,9 +558,6 @@ def normalize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Input dataset with normalized water quality variables.
     """
-    log.info(
-        "Applying normalisation parameters to provided water quality variables"
-    )
     normalization_params_fp = files("water_quality.data").joinpath(
         "normalisation_paramters.csv"
     )
@@ -573,8 +570,9 @@ def normalize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
                 + row.offset * row.era_factor
             )
             input_ds[row.measurement].attrs["wq_var_group"] = row.var
-
-    log.info("Normalization of water quality variables complete.")
+            log.info(
+                f"Normalization of variable {row.measurement} is complete."
+            )
     return input_ds
 
 
@@ -728,6 +726,9 @@ def harmonize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
                 )
 
                 input_ds[target_var][:] = g(f(input_ds[target_var]))
+                log.info(
+                    f"Harmonization of variable {target_var} with reference to {ref_var} is complete."
+                )
 
     return input_ds
 
