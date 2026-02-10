@@ -559,61 +559,26 @@ def normalize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
         Input dataset with normalized water quality variables.
     """
     normalization_params_fp = files("water_quality.data").joinpath(
-        "normalisation_paramters.csv"
+        "normalisation_parameters.csv"
     )
     normalization_params = pd.read_csv(normalization_params_fp)
 
-    for row in normalization_params.itertuples():
-        if row.measurement in list(input_ds.data_vars):
-            input_ds[row.measurement] = (
-                input_ds[row.measurement] * row.scale
-                + row.offset * row.era_factor
+    for target_var in list(input_ds.data_vars):
+        if target_var not in normalization_params["measurement"].values:
+            raise ValueError(
+                f"Normalization parameters for variable {target_var} not found."
             )
-            input_ds[row.measurement].attrs["wq_var_group"] = row.var
-            log.info(
-                f"Normalization of variable {row.measurement} is complete."
+        else:
+            params = normalization_params[
+                normalization_params["measurement"] == target_var
+            ].iloc[0]
+            input_ds[target_var] = (
+                input_ds[target_var] * params["scale"]
+                + params["offset"] * params["era_factor"]
             )
-    return input_ds
+            input_ds[target_var].attrs["wq_var_group"] = params["var"]
+            log.debug(f"Normalization of variable {target_var} is complete.")
 
-
-def add_normalization_attributes(input_ds: xr.Dataset) -> xr.Dataset:
-    """
-    Add the scale, offset, and era factor required to normalize a
-    water quality variable as attributes to the appropriate
-    variables in the input dataset from the provided normalization parameters.
-
-    Parameters
-    ----------
-    input_ds : xr.Dataset
-        Dataset containing water quality variables to be normalized.
-
-    Returns
-    -------
-    xr.Dataset
-        Input dataset with normalization parameters added to the specified bands
-        as attributes.
-    """
-    log.info(
-        "Adding normalisation parameters as attributes to water quality variables"
-    )
-    normalization_params_fp = files("water_quality.data").joinpath(
-        "normalisation_paramters.csv"
-    )
-    normalization_params = pd.read_csv(normalization_params_fp)
-
-    for row in normalization_params.itertuples():
-        if row.measurement in list(input_ds.data_vars):
-            normalization_attrs = {
-                "normalisation_scale": row.scale,
-                "normalisation_offset": row.offset,
-                "normalisation_era_factor": row.era_factor,
-                "wq_var_group": row.var,
-            }
-            input_ds[row.measurement].attrs.update(normalization_attrs)
-
-    log.info(
-        "Addition of normalization parameters as attributes to water quality variables complete."
-    )
     return input_ds
 
 
