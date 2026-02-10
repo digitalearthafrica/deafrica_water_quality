@@ -28,8 +28,8 @@ from water_quality.tasks import split_tasks
     default=False,
     show_default=True,
     help=(
-        "If overwrite is True tasks that have already been processed "
-        "will be rerun. "
+        "If overwrite is True existing dataset metadata files (STAC files) "
+        "will be overwritten. "
     ),
 )
 @click.argument(
@@ -96,10 +96,10 @@ def cli(
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=UserWarning)
                     log.info("Creating metadata STAC file ...")
-                    stac_file_url = prepare_dataset(  # noqa: F841
+                    stac_file_url = prepare_dataset(  # noqa F841
                         measurement_paths=measurement_paths,
-                        source_datasets_uuids=None,
                     )
+
             except Exception as e:
                 log.error(
                     f"Failed to generate STAC file for dataset {dataset_path}: {e}"
