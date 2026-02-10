@@ -573,9 +573,8 @@ def normalize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
                 normalization_params["measurement"] == target_var
             ].iloc[0]
             input_ds[target_var] = (
-                input_ds[target_var] * params["scale"]
-                + params["offset"] * params["era_factor"]
-            )
+                input_ds[target_var] * params["scale"] + params["offset"]
+            ) * params["era_factor"]
             input_ds[target_var].attrs["wq_var_group"] = params["var"]
             log.debug(f"Normalization of variable {target_var} is complete.")
 
