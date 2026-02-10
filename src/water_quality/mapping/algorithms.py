@@ -578,7 +578,7 @@ def normalize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
 
 def add_normalization_attributes(input_ds: xr.Dataset) -> xr.Dataset:
     """
-    Add the scale, offset, and era factor requried to normalize a
+    Add the scale, offset, and era factor required to normalize a
     water quality variable as attributes to the appropriate
     variables in the input dataset from the provided normalization parameters.
 
