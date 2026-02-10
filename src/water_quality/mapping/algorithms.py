@@ -682,10 +682,10 @@ def harmonize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
     )
     lookup_table = pd.read_csv(lookup_table_fp, index_col=0)
 
-    distributions_fp = files("water_quality.data").joinpath(
-        "measurment_distributions.nc"
+    distributions_table_fp = files("water_quality.data").joinpath(
+        "measurement_distributions.csv"
     )
-    distributions = xr.open_dataset(distributions_fp, engine="h5netcdf")
+    distributions_table = pd.read_csv(distributions_table_fp, index_col=0)
 
     # Scipy interpolation expects a numpy array as input hence dask arrays are
     # computed here.
@@ -695,40 +695,41 @@ def harmonize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
         input_ds = input_ds.compute()
         log.info("\tDask compute complete.")
 
-    for row in lookup_table.itertuples():
-        ref_var = row.reference
-        target_var = row.target
+    for target_var in list(input_ds.data_vars):
+        if target_var not in lookup_table["target"].values:
+            raise ValueError(
+                f"Variable {target_var} is not listed in the lookup table."
+            )
+        if target_var not in distributions_table.columns:
+            raise ValueError(
+                f"Variable {target_var} is not listed in the distributions table."
+            )
 
+        ref_var = lookup_table[lookup_table["target"] == target_var].iloc[0][
+            "reference"
+        ]
         if ref_var == target_var:
-            continue
+            log.debug(
+                f"Harmonization of variable {target_var} is not required since the reference variable is the same as the target variable."
+            )
         else:
-            if target_var not in list(input_ds.data_vars):
-                continue
-            else:
-                Q = distributions.q
-                method = "linear"
-
-                i, j = 0, 101
-                f = sp.interpolate.interp1d(
-                    distributions[target_var][i:j],
-                    Q[i:j],
-                    kind=method,
-                    bounds_error=False,
-                    fill_value=(0, 1),
-                )
-
-                k, l = 0, 101
-                g = sp.interpolate.interp1d(
-                    Q[k:l],
-                    distributions[ref_var][k:l],
-                    kind=method,
-                    bounds_error=False,
-                )
-
-                input_ds[target_var][:] = g(f(input_ds[target_var]))
-                log.info(
-                    f"Harmonization of variable {target_var} with reference to {ref_var} is complete."
-                )
+            f = sp.interpolate.interp1d(
+                distributions_table[target_var],
+                distributions_table.index.values,
+                kind="linear",
+                bounds_error=False,
+                fill_value=(0, 1),
+            )
+            g = sp.interpolate.interp1d(
+                distributions_table.index.values,
+                distributions_table[ref_var],
+                kind="linear",
+                bounds_error=False,
+            )
+            input_ds[target_var][:] = g(f(input_ds[target_var]))
+            log.debug(
+                f"Harmonization of variable {target_var} with reference to {ref_var} is complete."
+            )
 
     return input_ds
 
