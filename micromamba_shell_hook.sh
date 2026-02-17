@@ -6,7 +6,7 @@ export AWS_DEFAULT_REGION=af-south-1
 export AWS_NO_SIGN_REQUEST=YES
 export PIP_NO_CACHE_DIR=1
 
-ENV_NAME="deafrica-water-quality-env"
+ENV_NAME=$(yq -r '.name' "$PROD_YAML")
 
 # Keep record of the env files hash files
 PROD_YAML_HASH=$(sha256sum "$PROD_YAML" | awk '{print $1}')

@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import warnings
+from importlib.resources import files
 
 import click
 import numpy as np
@@ -337,7 +338,6 @@ def cli(
             wq_ds["tsm_chla_tsi"], wq_vars_df = WQ_vars(
                 annual_data=annual_data,
                 water_mask=wq_ds["water_mask"],
-                compute=True,
                 stack_wq_vars=True,
             )
             gc.collect()
