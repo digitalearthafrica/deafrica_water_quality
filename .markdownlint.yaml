@@ -1,0 +1,9 @@
+{
+  "MD003": {
+    "style": "atx"
+  },
+  "MD013": false,  # allow long lines
+  "MD029": false,  # allow different ordered list prefixes (for auto-generated TOC)
+  "MD033": false,  # allow inline HTML
+  "MD046": false   # allow both fenced and indented code blocks (mermaid needs fenced)
+}

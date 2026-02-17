@@ -1,6 +1,6 @@
 services:
   db:
-    extends: 
+    extends:
       file: compose_prod.yaml
       service: db
 
@@ -11,8 +11,9 @@ services:
     build:
       args:
         BUILD_ENV: "dev"
+        JUPYTER_PORT: ${JUPYTER_PORT}
     ports:
-      - ${JUPYTER_PORT}:9988
+      - ${JUPYTER_PORT}:${JUPYTER_PORT}
     volumes:
       - .:/home/jovyan/
 
@@ -33,6 +34,9 @@ services:
     - FLASK_APP=cubedash
     - FLASK_DEBUG=1
     - CUBEDASH_DEFAULT_TIMEZONE=${CUBEDASH_DEFAULT_TIMEZONE}
+    - AWS_NO_SIGN_REQUEST=YES
+    - CUBEDASH_DATA_S3_REGION="af-south-1"
+    - AWS_S3_ENDPOINT=https://s3.af-south-1.amazonaws.com
     # - VIRTUAL_HOST=datacube.explorer
     depends_on:
       - db

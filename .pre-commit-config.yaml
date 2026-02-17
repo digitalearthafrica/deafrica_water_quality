@@ -1,0 +1,97 @@
+# 🎨✨ Pre-commit configuration ✨🎨
+# 🚀 Making your code beautiful, one commit at a time! 🚀
+
+repos:
+  - repo: local
+    hooks:
+      - id: nixfmt-rfc-style
+        name: 🎯 Format Nix files with nixfmt-rfc-style
+        entry: nixfmt
+        language: system
+        files: '\.nix$'
+        # ✨ This will automatically fix formatting issues ✨
+        # 💡 Remove --check if you want it to always fix without failing
+        args: []
+        pass_filenames: true
+        description: "🔧 Format Nix files using nixfmt-rfc-style for RFC compliance"
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: ✂️ Trim trailing whitespace
+        description: 🧹 Clean up those pesky trailing spaces
+        files: '\.(nix|md|yaml|yml|toml|txt)$'
+
+      - id: end-of-file-fixer
+        name: 📝 Fix end of files
+        description: 🎯 Ensures files end with exactly one newline (like a proper ending!)
+        files: '\.(nix|md|yaml|yml|toml|txt)$'
+
+      - id: check-yaml
+        name: 📋 Check YAML syntax
+        description: 🔍 Validate YAML files for proper syntax
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        name: 🚫 Check for large files
+        description: 🐘 Prevent giant files from sneaking into your repo
+        args: ['--maxkb=1000']  # 🎯 Limit files to 1MB
+
+  - repo: local
+    hooks:
+      - id: markdownlint
+        name: "📝 markdownlint - Markdown linter"
+        entry: markdownlint --fix
+        language: system
+        types: [markdown]
+        stages: [pre-commit]
+  - repo: local
+    hooks:
+      - id: cspell
+        name: "🔤 cspell - Spell checker for Markdown"
+        entry: cspell --config=.cspell.json --no-progress --no-summary
+        language: system
+        types: [markdown]
+        stages: [pre-commit]
+
+
+  - repo: local
+    hooks:
+      - id: actionlint
+        name: "🤖 actionlint - GitHub Actions workflow linter"
+        entry: actionlint
+        language: system
+        types: [yaml]
+        files: ^\.github/workflows/.*\.ya?ml$
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: shellcheck-scripts
+        name: "🐚 ShellCheck - scripts"
+        entry: shellcheck
+        language: system
+        files: ^utils/.*\.(sh|bash|zsh)$
+        pass_filenames: true
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      - id: ruff
+        name: "Ruff lint + fix (src + tests)"
+        entry: ruff
+        language: python
+        types: [python]
+        files: ^(src|tests)/.*\.py$
+        args: ["check", "--select", "I", "--fix"]
+  # - repo: local
+  #   hooks:
+  #     - id: bearer-plugin
+  #       name: "🛡️ Bearer - Security & privacy scanner"
+  #       entry: bearer scan --exit-code 1
+  #       language: system
+  #       pass_filenames: true
+  #       stages: [pre-commit]

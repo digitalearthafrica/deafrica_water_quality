@@ -36,7 +36,7 @@ def check_crs(crs: str | CRS) -> CRS:
 
 def check_resolution(resolution: int) -> int:
     """
-    Esnure resolution provided is a positive integer.
+    Ensure resolution provided is a positive integer.
 
     Parameters
     ----------

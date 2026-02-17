@@ -5,6 +5,7 @@ products
 
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -21,9 +22,9 @@ from water_quality.io import (
     get_parent_dir,
     get_wq_dataset_id,
     get_wq_stac_url,
+    is_local_path,
     parse_wq_cog_url,
 )
-from water_quality.mapping.algorithms import NORMALISATION_PARAMETERS
 from water_quality.metadata.easi_assemble import EasiPrepare
 
 log = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
     Returns
     -------
     dict[str, Any]
-        ODC product template for the product wqs_annual_v1 product.
+        ODC product template for the product wq_annual_v1 product.
     """
     all_tile_geotifs = find_geotiff_files(tile_directory)
 
@@ -60,14 +61,6 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
                 measurement_path
             )
 
-            scale_and_offset = NORMALISATION_PARAMETERS.get(band, None)
-            if scale_and_offset is not None:
-                scale_factor = scale_and_offset["scale"]
-                add_offset = scale_and_offset["offset"]
-            else:
-                scale_factor = 1.0
-                add_offset = 0.0
-
             exists = any(item.get("name") == band for item in measurements)
             if exists:
                 continue
@@ -76,14 +69,13 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
                 measurement_info["dtype"] = "float32"
                 measurement_info["nodata"] = "NaN"
                 measurement_info["units"] = "1"
-                measurement_info["scale_factor"] = scale_factor
-                measurement_info["add_offset"] = add_offset
+                measurement_info["scale_factor"] = 1.0
+                measurement_info["add_offset"] = 0.0
 
                 measurements.append(measurement_info)
 
     measurements = sorted(measurements, key=lambda x: x["name"])
     # Create the product config.
-    product_name = "wqs_annual"
     description = "DE Africa Water Quality Service annual water quality variables at 10m resolution - version 1."
     metadata_type = "eo3"
     license = "CC-BY-4.0"
@@ -100,7 +92,7 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
         measurements=measurements,
     )
 
-    output_yaml = "wqs_annual.odc-product.yaml"
+    output_yaml = "wq_annual.odc-product.yaml"
 
     fs = get_filesystem(output_yaml, anon=False)
     with fs.open(output_yaml, "w") as stream:
@@ -117,7 +109,7 @@ def generate_annual_product_template(tile_directory: str) -> dict[str, Any]:
 
 
 def get_dummy_product_yaml(
-    dataset_path: str,
+    measurement_paths: list[str],
 ) -> dict[str, Any]:
     """
     Generate an ODC product definition file for a dataset, with only
@@ -128,8 +120,8 @@ def get_dummy_product_yaml(
 
     Parameters
     ----------
-    dataset_path : str
-        Path or URI to the dataset directory
+    measurement_paths : list[str]
+        List of Paths or URIs to the individual bands for a single dataset.
 
     Returns
     -------
@@ -137,20 +129,9 @@ def get_dummy_product_yaml(
         ODC product definition for the product a dataset belongs to.
     """
     measurements = []
-    dataset_measurements = find_geotiff_files(dataset_path)
-    for measurement_path in dataset_measurements:
+    for measurement_path in measurement_paths:
         measurement_info = {}
-        product_name, region_code, temporal_id, band = parse_wq_cog_url(
-            measurement_path
-        )
-
-        scale_and_offset = NORMALISATION_PARAMETERS.get(band, None)
-        if scale_and_offset is not None:
-            scale_factor = scale_and_offset["scale"]
-            add_offset = scale_and_offset["offset"]
-        else:
-            scale_factor = 1.0
-            add_offset = 0.0
+        product_name, _, _, band = parse_wq_cog_url(measurement_path)
 
         exists = any(item.get("name") == band for item in measurements)
         if exists:
@@ -160,8 +141,8 @@ def get_dummy_product_yaml(
             measurement_info["dtype"] = "float32"
             measurement_info["nodata"] = "NaN"
             measurement_info["units"] = "1"
-            measurement_info["scale_factor"] = scale_factor
-            measurement_info["add_offset"] = add_offset
+            measurement_info["scale_factor"] = 1.0
+            measurement_info["add_offset"] = 0.0
 
             measurements.append(measurement_info)
 
@@ -212,17 +193,15 @@ def get_common_attrs(dataset_measurement_url: str) -> dict:
 
 
 def prepare_dataset(
-    dataset_path: str,
+    measurement_paths: list[str],
     source_datasets_uuids: list[UUID] = None,
 ) -> str:
     """Prepares a STAC dataset metadata file for a data product.
 
     Parameters
     ----------
-    dataset_path : str
-        Directory of the dataset. The dataset path is the directory
-        where all water quality variables and associated metadata for
-        a processed task are stored.
+    measurement_paths : list[str]
+        List of Paths or URIs to the individual bands for a single dataset.
     source_datasets_uuids : list[UUID]
         Option list of the UUIDs for datasets that were used in the
         calculation of this dataset.
@@ -231,10 +210,20 @@ def prepare_dataset(
     str
         Path to odc dataset STAC file
     """
+
+    dataset_path = list(set(get_parent_dir(i) for i in measurement_paths))
+    if len(dataset_path) > 1:
+        error_msg = f"Measurements for a single dataset should be in the same directory. Found multiple dataset paths: {', '.join(dataset_path)}"
+        error = ValueError(error_msg)
+        # log.error(error)
+        raise error
+    else:
+        dataset_path = dataset_path[0]
+
     dataset_id = get_wq_dataset_id(dataset_path)
     output_path = get_wq_stac_url(dataset_path)
 
-    product_definition = get_dummy_product_yaml(dataset_path)
+    product_definition = get_dummy_product_yaml(measurement_paths)
 
     ## Initialise and validate inputs
     # Creates variables (see EasiPrepare for others):
@@ -248,8 +237,18 @@ def prepare_dataset(
     )
 
     # Find all measurement paths for a dataset
-    dataset_id_regex = rf"{dataset_id}_(.*?)\.tif$"
-    measurement_map = p.map_measurements_to_paths(dataset_id_regex)
+    # dataset_id_regex = rf"{dataset_id}_(.*?)\.tif$"
+    # measurement_map = p.map_measurements_to_paths(dataset_id_regex)
+
+    # Alternative approach to map measurements to paths since all
+    # measurements files are provided
+    measurement_map = {}
+    for m in measurement_paths:
+        _, _, _, band_name = parse_wq_cog_url(m)
+        if is_local_path(m):
+            measurement_map[band_name] = Path(m)
+        else:
+            measurement_map[band_name] = m
 
     # Get attrs from one of the measurement files
     common_attrs = get_common_attrs(list(measurement_map.values())[0])

@@ -18,7 +18,7 @@ from eodatasets3 import serialise
 from eodatasets3.images import GridSpec, MeasurementBundler
 from eodatasets3.model import AccessoryDoc, DatasetDoc, ProductDoc
 from eodatasets3.properties import Eo3Interface
-from eodatasets3.stac import to_stac_item
+from eodatasets3.stac import to_stac_item as eo3_to_stac_item
 from eodatasets3.validate import (
     Level,
     ValidationExpectations,
@@ -368,16 +368,16 @@ class EasiPrepare(Eo3Interface):
 
         # File system
         if self._dataset_scheme == "file":
-            if self._dataset_path.is_dir():
-                for filename in self._dataset_path.rglob("*.*"):
+            if Path(self._dataset_path).is_dir():
+                for filename in Path(self._dataset_path).rglob("*.*"):
                     m = p.search(str(filename))
                     if m:
                         band_ids[m.group(1)] = filename
             else:
-                filename = self._dataset_path
+                filename = Path(self._dataset_path)
                 m = p.search(str(filename.name))
                 if m:
-                    band_ids[m.group(1)] = filename
+                    band_ids[m.group(1)] = str(filename)
 
         # S3; obtain a list of object keys for the dataset
         if self._dataset_scheme == "s3":
@@ -625,7 +625,7 @@ class EasiPrepare(Eo3Interface):
             sort_measurements=sort_measurements,
             expect_geometry=expect_geometry,
         )
-        stac_item = to_stac_item(
+        stac_item = eo3_to_stac_item(
             dataset=dataset, stac_item_destination_url=self._output_path
         )
         return stac_item

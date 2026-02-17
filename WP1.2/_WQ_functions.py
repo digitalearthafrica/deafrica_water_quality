@@ -4,6 +4,471 @@ import numpy  as np
 import xarray as xr
 import matplotlib.pyplot as plt
 import gc   # garbage collection
+import pandas as pd
+import datacube
+import scipy as sp
+
+#---------------------------------------------------------------------------------------
+# this function  adjusts the values of an array  
+#     - the adjustment aims to remove biases between the values observed from different instruments
+#     - it works by adjusting the observations based on the observed distributions of the target and reference variable
+#     - the adjustment is based on a large dataset of measurements taken over waterbodies in Africa using DEA data.
+# 
+def harmonise_for_instrument(da,           # the input data array
+                             varname,      # the name of the variable as it appears in the lookup table
+                             lookup_table, # the lookup table (a pandas data frame) used to find the reference variable that corresponds to the variable
+                             distributions, # the dataset of cumulatibve probability distributions used to determine the transformation
+                             test = False,   # test flag; this also changes the behaviour of the function 
+                            ): 
+    # --- find the target variable
+    if not varname in list(lookup_table.target):
+        print(varname+' not found, data unchanged')
+        return(da)
+ 
+    refname = lookup_table[lookup_table.target==varname]['reference'].item()   
+    if test: print(varname,refname)
+    if refname == varname:
+        if test: print('data will be unchanged')
+        return(da)
+
+    Q              = distributions.q 
+    method = 'quadratic'    # quadratic may be okay but should not be necessary and can introduce problems at the distribution tails
+    method = 'linear'    
+
+    # i,j,k,l control which parts of the distribution we  mnodel - conclude after experimentation that issues arise if the full
+    #         distribution is not used
+    
+    # --- fit a model to X; ie Q = f(x); limit the valid range of the function with excess values being set to 0 or 1
+    i,j = 0,101  
+    f = sp.interpolate.interp1d(distributions[varname][i:j],Q[i:j],kind=method,bounds_error = False,fill_value = (0,1))    
+
+    # --- fit an inverse model to Y; ie Y = g(Q). 
+    k,l = 0,101  
+    g = sp.interpolate.interp1d(Q[k:l],distributions[refname][k:l],kind=method,bounds_error=False)
+
+    # --- given the functions f and g, the required adjustment is g(f(x)) ----------------
+    
+    # --- create a new variable as a data array that matches the one provided, so that we can return a nice array
+    if test and False:
+        print('returning functions as well as data')
+        return(
+            xr.DataArray(data=g(f(da)), dims=da.dims,coords = da.coords,name = da.name+'_h'),f,g
+        )    # --- create a new variable as a data array that matches the one provided, so that we can return a nice array
+    return(
+        xr.DataArray(data=g(f(da)), dims=da.dims,coords = da.coords,name = da.name+'_h')
+        )
+
+
+
+# ----------------------------------------------------------------------------
+# this function moved here from the Build_annual_datasets notebook
+def process_st_data_to_annual(ds_tirs,ds_wofs_ann,verbose=True,test=True):
+    # --- a function to process the surface temperature data to annual averages
+    # --- inputs are 1) a daily time series of temperatures and 
+    #                2) the annualised wofs data which is used as a template, and to which the results are returned
+
+    # -- rescale to centigrade, remove outliers, apply quality filter and also filter on emissivity > 0.95. 
+    #     (This handles outliers better than load_ard)
+
+    water_frequency_threshold = 0.5 # --- taking an inclusive approach at this stage
+    dst = ds_tirs
+    dsw = ds_wofs_ann
+    dst['tirs_st']    = (dst.tirs_st * 0.00341802 + 149.0) - 273.15
+    dst['tirs_st_qa'] = dst['tirs_st_qa'] * 0.01    # -- uncertainty in kelvin 
+    dst['tirs_emis']  = dst['tirs_emis' ] * 0.0001  # -- emissivity fraction
+    dst['tirs_st']    = xr.where(dst['tirs_st'] > 0,
+                            xr.where(dst['tirs_st_qa'] < 5,
+                                 xr.where(dst['tirs_emis']> 0.95,
+                                          dst['tirs_st'],
+                                          np.nan),
+                                 np.nan),
+                            np.nan)
+
+    # --- Average the temperatures up to years - min, max and mean --- Why no function that will do this easily?!
+    # --- data suggest that the median values are better than the mean
+
+    # --- create new variables in the annual wofs dataset to include temperature
+    times = ds_wofs_ann.time
+    dimensions  = ds_wofs_ann.sizes
+    arrayshape = [dimensions['time'],dimensions['y'],dimensions['x']]
+    dsw['tirs_st_ann_med'] = ('time','y','x'),np.zeros(arrayshape)
+    dsw['tirs_st_ann_min'] = ('time','y','x'),np.zeros(arrayshape)
+    dsw['tirs_st_ann_max'] = ('time','y','x'),np.zeros(arrayshape)
+
+    # --- iterate through the years to get the annual average focussed on the middle of the year 
+    # --- couldn't find a  (discoverable/ simple) function  to do this???!
+    for i in np.arange(0,times.size):
+        t_start = (times[i]-np.timedelta64(182,'D')) 
+        t_end   = (times[i]+np.timedelta64(182,'D'))
+        dsw['tirs_st_ann_med'][i,:,:] =  dst.sel(time=slice(t_start,t_end)).tirs_st.median(dim=('time'))
+        dsw['tirs_st_ann_min'][i,:,:] =  dst.sel(time=slice(t_start,t_end)).tirs_st.quantile(.1,dim=('time'))
+        dsw['tirs_st_ann_max'][i,:,:] =  dst.sel(time=slice(t_start,t_end)).tirs_st.quantile(.9,dim=('time'))
+
+    # --- restrict values to areas of water taking an inclusive approach at this time ----
+    dsw['tirs_st_ann_med'] = xr.where(dsw.wofs_ann_freq > water_frequency_threshold, dsw['tirs_st_ann_med'],np.nan)
+    dsw['tirs_st_ann_min'] = xr.where(dsw.wofs_ann_freq > water_frequency_threshold, dsw['tirs_st_ann_min'],np.nan)
+    dsw['tirs_st_ann_max'] = xr.where(dsw.wofs_ann_freq > water_frequency_threshold, dsw['tirs_st_ann_max'],np.nan)
+    
+    if verbose:
+        dsw.tirs_st_ann_med.median(dim=('x','y')).plot(figsize=(16,6),label='Median Water Temperature');
+        dsw.tirs_st_ann_min.median(dim=('x','y')).plot(               label='Minimum Water Temperature');
+        dsw.tirs_st_ann_max.median(dim=('x','y')).plot(               label='Maximum Water Temperature');
+        plt.title("Temperatures over time")
+        plt.ylabel("Centigrade")
+        plt.legend()
+
+    return(dsw)
+    
+
+
+# ----------------------------------------------------------------------------
+# this function moved here from the build_annual_datasets notebook 
+def build_wq_agm_dataset(spacetime_domain,
+                         grid_resolution,
+                         resampling_option,
+                         instruments_to_use,verbose=False):
+    #loads the 'data products' from the data cube collections
+    #returns a single dataset of uniform spatial resolution
+    if verbose : print('\nBuilding the dataset:')
+    
+    products = { 'tm_agm' :["gm_ls5_ls7_annual"],
+                'oli_agm' :["gm_ls8_annual","gm_ls8_ls9_annual"],
+                'msi_agm' :["gm_s2_annual"],
+                'tirs'    :["ls5_st","ls7_st","ls8_st","ls9_st"],
+                'wofs_ann':["wofs_ls_summary_annual"],
+                'wofs_all':["wofs_ls_summary_alltime"],
+               }
+
+    instruments,measurements,rename_dict = instruments_list(instruments_to_use) 
+    datasets = {}
+    dc = datacube.Datacube(app='building_wq_agm_dataset')
+
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use'] :
+            if verbose : print('loading data for ',instrument,'...')
+            datasets[instrument] = dc.load(product=(products[instrument]),
+                                 **spacetime_domain,
+                                 **{'measurements': measurements[instrument]},
+                                 output_crs='epsg:6933',
+                                 resolution=grid_resolution,
+                                 align=(0,0),
+                                 resampling=resampling_option,)
+    
+    #added a CRS since temperature data crashes without it
+
+    #separating the rename step out:
+    #rename the measurements to standardised variable names,
+
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use']:      
+            datasets[instrument] = rename_vars_robust(datasets[instrument],rename_dict[instrument],False)       
+    
+    # --- an additional call in here to process the surface temperature data to annual summary and apply qa
+    # --- this also ensures that the dataset remains on an annual time-step 
+    # --- temperature data is returned bundled with the wofs annual data
+    
+    if instruments_to_use['tirs']['use'] == True:
+        datasets['wofs_ann'] = process_st_data_to_annual(datasets['tirs'],datasets['wofs_ann'],verbose=verbose,test=test)
+    
+    # .... and build a list of datasets to merge:
+    mergelist = []; i = 0
+    first = True
+    for instrument in list(instruments_to_use.keys()):
+        if instruments_to_use[instrument]['use'] and not instrument == 'tirs':      
+            #datasets[instrument] = rename_vars_robust(datasets[instrument],rename_dict[instrument],False)       
+            if first :
+                first = False
+                dataset = datasets[instrument]
+            else:
+                dataset = dataset.combine_first(datasets[instrument])
+            mergelist.append(datasets[instrument])
+    return(dataset)
+
+# ----------------------------------------------------------------------
+
+def instruments_list(instruments_to_use,verbose=False)  : 
+    #The arguement is the list of instruments that is to be used. 
+    
+    #Primary list of instruments, measurements, and interoperable variable names
+    # Also, here is where to turn a particular band on or off, using the 'parameters' entry
+    # (an 'instrument' is something that produces a product ..., so it includes algorithms like wofs
+
+    #Three things are returned:
+    # 'instruments', the 'master list' of instruments being used in the analysis. This is a subsetof the full list available.
+    # 'measurements', a list of measurements to be accessed from the data cube collections - for each instrument
+    # 'rename_dict', a dictionary for re-naming measurements to have unique dataset variable names, when the time comes
+    
+
+    instruments = {
+          'wofs_ann'    : {
+                        'frequency' : {'varname' : ('wofs_ann_freq')      , 'parameters' : (True,'other')},
+                        'count_clear': {'varname': ('wofs_ann_clearcount'), 'parameters' : (True,)},
+                        'count_wet'  : {'varname': ('wofs_ann_wetcount')  , 'parameters' : (True,)}
+                        },
+          'wofs_all'    : {
+                        'frequency' : {'varname' : ('wofs_all_freq')      , 'parameters' : (True,'other')},
+                        'count_clear': {'varname': ('wofs_all_clearcount'), 'parameters' : (True,)},
+                        'count_wet'  : {'varname': ('wofs_all_wetcount')  , 'parameters' : (True,)}
+                        },
+              'oli_agm' : {
+                        'SR_B2' : {'varname': ('oli02_agm')      , 'parameters' : (True,'450-510')},
+                        'SR_B3' : {'varname': ('oli03_agm')      , 'parameters' : (True,'530-590')},
+                        'SR_B4' : {'varname': ('oli04_agm')      , 'parameters' : (True,'640-670')},
+                        'SR_B5' : {'varname': ('oli05_agm')      , 'parameters' : (True,'850-880')},
+                        'SR_B6' : {'varname': ('oli06_agm')      , 'parameters' : (True,'1570-1650')},
+                        'SR_B7' : {'varname': ('oli07_agm')      , 'parameters' : (True,'2110-2290')},
+                        'smad' :  {'varname': ('oli_agm_smad')   , 'parameters' : (True,)},
+                        'emad' :  {'varname': ('oli_agm_emad')   , 'parameters' : (True,)},
+                        'bcmad' : {'varname': ('oli_agm_bcmad')  , 'parameters' : (True,)},
+                        'count' : {'varname': ('oli_agm_count')  , 'parameters' : (True,)},
+                            },
+              'oli'    : {
+                        'SR_B1' : {'varname': ('oli01')      , 'parameters' : (True,'450-510')},
+                        'SR_B2' : {'varname': ('oli02')      , 'parameters' : (True,'450-510')},
+                        'SR_B3' : {'varname': ('oli03')      , 'parameters' : (True,'530-590')},
+                        'SR_B4' : {'varname': ('oli04')      , 'parameters' : (True,'640-670')},
+                        'SR_B5' : {'varname': ('oli05')      , 'parameters' : (True,'850-880')},
+                        'SR_B6' : {'varname': ('oli06')      , 'parameters' : (True,'1570-1650')},
+                        'SR_B7' : {'varname': ('oli07')      , 'parameters' : (True,'2110-2290')},
+                        'pq'    :  {'varname':  ('oli_qa')   , 'parameters' : (True,)},
+
+                            },
+            'msi_agm' : {
+                        'B02'   : {'varname': ('msi02_agm')      , 'parameters' : (True,'460-525')},
+                        'B03'   : {'varname': ('msi03_agm')      , 'parameters' : (True,)},
+                        'B04'   : {'varname': ('msi04_agm')      , 'parameters' : (True,)},
+                        'B05'   : {'varname': ('msi05_agm')      , 'parameters' : (True,)},
+                        'B06'   : {'varname': ('msi06_agm')      , 'parameters' : (True,)},
+                        'B07'   : {'varname': ('msi07_agm')      , 'parameters' : (True,)},
+                        'B08' 	: {'varname': ('msi08_agm')      , 'parameters' : (False,'uint16 	1 	0.0 	[band_08, nir, nir_1] 	NaN')},
+                        'B8A' 	: {'varname': ('msi8a_agm')      , 'parameters' : (True,'uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN')},
+                        'B11' 	: {'varname': ('msi11_agm')      , 'parameters' : (True,'uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN')},
+                        'B12' 	: {'varname': ('msi12_agm')      , 'parameters' : (True,'uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN')},
+                        'smad'  : {'varname': ('msi_agm_smad') , 'parameters' : (True,)},
+                        'emad'  : {'varname': ('msi_agm_emad')   , 'parameters' : (True,)},
+                        'bcmad' : {'varname': ('msi_agm_bcmad')  , 'parameters' : (True,)},
+                        'count' : {'varname': ('msi_agm_count')  , 'parameters' : (True,)},
+                            },
+            'msi'      : {
+                        'B01'   : {'varname': ('msi01')      , 'parameters' : (False,' 442 bandwidth 20 nm, spatial 60 m, Coastal aerosol')},
+                        'B02'   : {'varname': ('msi02')      , 'parameters' : (True, ' 493 bandwidth 65 nm, spatial 10 m,')},
+                        'B03'   : {'varname': ('msi03')      , 'parameters' : (True, ' 559 bandwidth 35 nm, spatial 10 m,')},
+                        'B04'   : {'varname': ('msi04')      , 'parameters' : (True, ' 665 bandwidth 31 nm, spatial 10 m,')},
+                        'B05'   : {'varname': ('msi05')      , 'parameters' : (True, ' 704 bandwidth 14 nm, spatial 20 m')},
+                        'B06'   : {'varname': ('msi06')      , 'parameters' : (True, ' 741 bandwidth 13 nm, spatial 20 m,')},
+                        'B07'   : {'varname': ('msi07')      , 'parameters' : (True, ' 780 bandwidth 19 nm, spatial 20 m,')},
+                        'B08' 	: {'varname': ('msi08')      , 'parameters' : (False,' 833 bandwidth 104 nm, spatial 10 m, uint16 	1 	0.0 	[band_08, nir, nir_1] 	NaN')},
+                        'B8A' 	: {'varname': ('msi8a')      , 'parameters' : (True, ' 864 bandwidth 21 nm, spatial 20 m, uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN')},
+                        'B11' 	: {'varname': ('msi11')      , 'parameters' : (True, '1612 bandwidth 92 nm, spatial 20 m, uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN')},
+                        'B12' 	: {'varname': ('msi12')      , 'parameters' : (True, '2193 bandwidth 180 nm, spatial 20 m, uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN')},
+                        'qa'    : {'varname': ('msi_qa')     , 'parameters' : (True,)},
+                            },
+            'tm_agm' : {
+                        'SR_B1'   : {'varname': ('tm01_agm')      , 'parameters' : (True,'blue 450-520')},
+                        'SR_B2'   : {'varname': ('tm02_agm')      , 'parameters' : (True,'green 520-600')},
+                        'SR_B3'   : {'varname': ('tm03_agm')      , 'parameters' : (True,'red   630-690')},
+                        'SR_B4'   : {'varname': ('tm04_agm')      , 'parameters' : (True,'nir   760-900')},
+                        'SR_B5'   : {'varname': ('tm05_agm')      , 'parameters' : (True,'swir1 1550-1750')},
+                        'SR_B7'   : {'varname': ('tm07_agm')      , 'parameters' : (True,'swir2 2080-2350')},
+                        'smad'    : {'varname': ('tm_agm_smad')   , 'parameters' : (True,)},
+                        'emad'    : {'varname': ('tm_agm_emad')   , 'parameters' : (True,)},
+                        'bcmad'   : {'varname': ('tm_agm_bcmad')  , 'parameters' : (True,)},
+                        'count'   : {'varname': ('tm_agm_count')  , 'parameters' : (True,)},
+                        },
+            'tm'      : {
+                        'SR_B1'   : {'varname': ('tm01')      , 'parameters' : (True,'blue 450-520')},
+                        'SR_B2'   : {'varname': ('tm02')      , 'parameters' : (True,'green 520-600')},
+                        'SR_B3'   : {'varname': ('tm03')      , 'parameters' : (True,'red   630-690')},
+                        'SR_B4'   : {'varname': ('tm04')      , 'parameters' : (True,'nir   760-900')},
+                        'SR_B5'   : {'varname': ('tm05')      , 'parameters' : (True,'swir1 1550-1750')},
+                        'SR_B7'   : {'varname': ('tm07')      , 'parameters' : (True,'swir2 2080-2350')},
+                        'pq'      : {'varname': ('tm_qa')     , 'parameters' : (True,)},
+                        },
+            'tirs' :   {
+                        "st"        : {'varname': ('tirs_st')      , 'parameters' : (True ,'ST_B10, uint16 	Kelvin 	0.0 	[band_10, st, surface_temperature]')},
+                        "ST_TRAD"   : {'varname' :('tirs_trad')    , 'parameters' : (False,'ST_TRAD, int16 	W/(m2.sr.μm) 	-9999.0 	[trad, thermal_radiance]')},
+                        "ST_URAD"   : {'varname': ('tirs_urad')    , 'parameters' : (False,'ST_URAD 	int16 	W/(m2.sr.μm) 	-9999.0 	[urad, upwell_radiance]')},
+                        "ST_DRAD"   : {'varname': ('tirs_drad')    , 'parameters' : (False,'ST_DRAD 	int16 	W/(m2.sr.μm) 	-9999.0 	[drad, downwell_radiance]')},
+                        "ST_ATRAN"  : {'varname': ('tirs_atran')   , 'parameters' : (False,'ST_ATRAN 	int16 	1 	-9999.0 	[atran, atmospheric_transmittance]')},
+                        "emis"      : {'varname': ('tirs_emis')    , 'parameters' : (True ,'ST_EMIS 	int16 	1 	-9999.0 	[emis, emissivity]')},
+                        "emisd"     : {'varname': ('tirs_emsd')    , 'parameters' : (False ,'ST_EMSD 	int16 	1 	-9999.0 	[emsd, emissivity_stddev]')},
+                        "ST_CDIST"  : {'varname': ('tirs_cdist')   , 'parameters' : (False,'ST_CDIST 	int16 	Kilometers 	-9999.0 	[cdist, cloud_distance]')},
+                        "QA_PIXEL"  : {'varname': ('tirs_qa_pixel'), 'parameters' : (False,'QA_PIXEL 	uint16 	bit_index 	1.0 	[pq, pixel_quality]')},
+                        "QA_RADSAT" : {'varname': ('tirs_radsat')  , 'parameters' : (False,'QA_RADSAT 	uint16 	bit_index 	0.0 	[radsat, radiometric_saturation]')},
+                        "st_qa"     : {'varname': ('tirs_st_qa')   , 'parameters' : (True ,'ST_QA 	int16 	Kelvin 	-9999.0 	[st_qa, surface_temperature_quality]')},
+                        }
+            }
+
+    #reduce the full dictionary above to those instruments actually to be used in this case
+    instrument_list = list(instruments.keys())
+    for instrument in instrument_list:
+        if not instruments_to_use[instrument]['use']: instruments.pop(instrument)
+
+    #from the master dictionary above, create a dictionary of the measurements to use with each sensor - this uses the datacube / collection names
+    #and while at it, a list of the standardised variable names
+    measurements = {}
+    variables = {}
+    for instrument in enumerate(instruments):
+        iname = instrument[1] 
+        mmt_list = []
+        var_list = []
+        for mmt in  instruments[iname].keys():
+            if instruments[iname][mmt]['parameters'][0]:                # True if the measurement is needed (according to the master list)
+                 mmt_list.append(mmt)                                   # the old dataset band names
+                 var_list.append(instruments[iname][mmt]['varname'])    # harmonised names for variables
+        variables   [iname]    = tuple(var_list)
+        measurements[iname]    = tuple(mmt_list)
+        #{measurements : measurements[instrument_name]} will return a dictionary of measurements to be used in dc.load for the relevant collection
+
+    #further, create a dictionary that will be used when re-naming variables once they are in a dataset
+    rename_dict = {}
+    for instrument in enumerate(instruments):
+        mmt_list = []
+        for mmt in enumerate(instruments[instrument[1]]):
+            if instruments[instrument[1]][mmt[1]]['parameters'][0]:
+                #this measurement wil be used
+                mmt_list.append((mmt[1],instruments[instrument[1]][mmt[1]]['varname']))
+    
+        rename_dict[instrument[1]] = tuple(mmt_list)
+        #Later, the function call "rename_variabes_robust(rename_dict[instrument_name])" can be used to rename each datacube variable 
+    if verbose :
+        print('Measurements to be included: \n',mmt_list[:][0])
+        print('Instruemnts used:  \n',list(instruments.keys()))
+        print('Measurements will be re-named to variables as follows :\n',rename_dict)
+    return(instruments,measurements,rename_dict)
+
+# ----------------------------------------------------------------------------
+# this function moved here from the build_annual_datasets notebook 
+
+def check_instrument_dates(instruments_to_use,year1,year2,verbose=True):
+    # --- this function changes the values in the dictionary. Those changes apply globally, it seems. 
+    #---  cross-check against the years for which the analysis is going to be run.
+    instrument_dates = {
+        'oli_agm'  : [2013,2024],
+        'oli'      : [2013,2025],
+        'msi_agm'  : [2017,2024],
+        'msi'      : [2017,2025],
+        'wofs_ann' : [1990,2024],
+        'wofs_all' : [1990,2024],
+        'tm_agm'   : [1990,2012],
+        'tm'       : [1990,2023],
+        'tirs'     : [2000,2025],
+        }
+
+    for name in list(instruments_to_use.keys()):
+        if verbose: print(name, instruments_to_use[name]['use'])
+        if not (instrument_dates[name][1] >= int(year1) and instrument_dates[name][0] <= int(year2)):
+            if verbose: print('instrument ',name,' has date ranges ',instrument_dates[name][0],instrument_dates[name][1],' outside of ',year1,year2)
+            instruments_to_use[name]['use'] = False
+    return(instruments_to_use)
+
+# ------------------------------------------------
+    
+
+
+
+
+
+
+# --- Add boolean variables that indicate which instruments are available in the geomedian data series for a given year. For earlier years tm is available. 
+# --- assume that the 'smad' will always be available and use this as an indicator 
+# --- If the instrument is never available during the time series, the boolean variable is not added.
+
+
+
+def detect_geomedian_instruments (ds_annual):
+    for inst in 'oli_agm','tm_agm','msi_agm':
+        if inst+'_smad' in ds_annual.data_vars:
+            ds_annual[inst] = ('time'), np.zeros(ds_annual.sizes['time'],dtype ='bool')
+            ds_annual[inst] = ~np.isnan(ds_annual[inst+'_smad'].mean(dim=('x','y')))
+    return ds_annual
+
+def run_OWT(ds,agm=False,verbose=False):
+    OWT_vector_data = create_OWT_response_models(agm=agm)
+    suffix = ''
+    if agm :  suffix = '_agm'
+    for instrument in 'msi','oli','tm':
+        if instrument+suffix in ds.data_vars:
+            OWT_vectors = OWT_vector_data[instrument]    # the spectral reflectances specific to this sensor
+            OWT_data    = OWT(ds.where(ds.clearwater==1),
+                          instrument,
+                          OWT_vectors,
+                          agm=agm,
+                          test=False, 
+                          verbose=verbose) 
+            varname = instrument+suffix+'_owt'
+            if varname in ds.data_vars:
+                ds[varname] = xr.where(~np.isnan(OWT_data),OWT_data,ds[varname])
+            else : 
+                ds[varname] = OWT_data
+            del OWT_data
+    silent  = gc.collect()
+    return(ds)
+
+# This function calculates a running 5-year wofs frequency on the dataset
+# --- The start and end values are calculated on the nearest 5 year window; otherwise the centre of the window
+# --- *** Change needed to put the window as the interval leding upto the year in question to ensure future compatibility futher processing ** 
+# --- If the duration of the geomedian series is less than 5 years the frequency is calculated on that shorter time series. 
+# ! assuming the shape of the array is time,y,x and using array-based indexing rather than dataset labels.
+
+def WOFS_5_year_frequency(ds, test = True):
+    clearcount = np.zeros(ds.wofs_ann_freq.shape,dtype = 'int')
+    wetcount   = np.zeros(ds.wofs_ann_freq.shape,dtype = 'int')
+    freq       = np.zeros(ds.wofs_ann_freq.shape,dtype = 'float')
+    
+    length = ds.time.size
+    window = 5
+    # --- I am sure there is a simpler formulation, but this works! ---
+    for i in np.arange(0,length):
+        start = np.max([0,i-int(window/2)])
+        end   = np.min([length,start+5])    
+        start = np.min([start,length-5])
+        start = np.max([start,0])
+        if test: print(i,start,end)
+    
+        clearcount[i,:,:] = ds.wofs_ann_clearcount[start:end,:,:].sum(dim=('time'))
+        
+        wetcount[i,:,:]   = ds.wofs_ann_wetcount[start:end,:,:].sum(dim=('time'))
+        if test : print(start,end,clearcount[i,:,:].sum(),clearcount.sum(),wetcount[i,:,:].sum(),wetcount.sum())
+
+    np.divide(wetcount, clearcount, out = freq,where=(clearcount>0))
+
+    if test : print(np.nanmean(freq),np.sum(wetcount), np.sum(clearcount))
+    ds['wofs_5yr_freq']             = ds.wofs_ann_freq.dims, freq 
+    ds['wofs_5yr_clearcount']       = ds.wofs_ann_freq.dims, clearcount 
+    ds['wofs_5yr_wetcount']         = ds.wofs_ann_freq.dims, wetcount 
+    if test : print(ds.wofs_5yr_freq.mean().item(),np.nanmean(freq),ds.wofs_5yr_wetcount.sum().item(),np.sum(wetcount),ds.wofs_5yr_clearcount.sum().item(), np.sum(clearcount))
+    
+    return(ds)
+    
+
+
+#----------------------------------------------------------------------
+#  A function to calculate the Trophic State Index (TSI) from ChlA estimates. 
+#  For completeness, I include the data array sourced from the SDG 6.6.1 web site, which 
+#  gives the TSI as a step function. However it is just a log transfrom of the ChlA, so a much neater 
+#  implementation is to derive the TSI as a continuous variable. 
+#  The pandas data frame part is not essential; just convenient at the time.
+def trophic_state(da):
+    # source data
+    data = np.array((0,0.04,10,0.12,20,0.34,30,0.94,40,2.6,50,6.4,60,20,70,56,80,154,90,427,100,1183)).reshape(11,2)
+    df = pd.DataFrame(data=None,
+                  columns = ['TSI','ChlA'],
+                 )
+    df['TSI' ] = data[:,0].astype('int')
+    df['ChlA'] = data[:,1]
+
+    # derive the log-linear model; in practice these parameters will not change, slope =22.4622417, intercept = 30.9129
+    slope,intercept = np.polyfit(np.log10(df.ChlA),df.TSI,1) 
+    min        = 0.01
+    da[da<min] = min
+    tsi = np.log10(da) * slope + intercept + 0.53   #the 0.53 ensures that the lowest values match. A nicety.
+    
+    tsi[tsi<0] = 0
+    tsi[tsi>100] = 100
+    tsi[np.isnan(da)]=np.nan
+    return(tsi.round(2))  
+
 
 # --------------------------------------------------------------------------------------------------------
 def WQ_vars(ds,
@@ -16,6 +481,7 @@ def WQ_vars(ds,
     
     # ---- Run the TSS/TSP algorithms applying each algorithm to the instruments and band combinations set in the dictionary,
     #      checking that the necessary instruments are in the dataset
+    
     if test: print(' \nRunning  WQ algorithms for:\n',list(algorithms.keys()))    
     wq_varlist =  []
     for alg in algorithms.keys():
@@ -26,7 +492,7 @@ def WQ_vars(ds,
             
             if inst in list(instruments.keys()): 
                 if test : print('instrument found',inst)
-                if inst == 'msi_agm' and alg == 'ndci_nir_r' :  #special case here as options are possible
+                if inst in ['msi_agm','msi'] and alg == 'ndci_nir_r' :  #special case here as options are possible
                     for option in params.keys():
                         opparams = params[option]
                         function = opparams['func']
@@ -68,8 +534,7 @@ def WQ_vars(ds,
 #     NDVI is calculated for each instrument in the series (tm, oli, msi).
 #     The overall NDVI is a weighted mean (weighted by the number of observations in each geomedian)
 
-def geomedian_NDVI(ds_annual,test=False):
-    WAFT = 0.45
+def geomedian_NDVI(ds_annual,water_mask,test=False):
     ndvi_bands = {}
     ndvi_bands['tm']  = ['tm04','tm03']
     ndvi_bands['oli'] = ['oli05','oli04']
@@ -81,65 +546,49 @@ def geomedian_NDVI(ds_annual,test=False):
     reference_mean = {
         'ndvi' : {'msi_agm': 0.2335, 'oli_agm' : 0.2225, 'tm_agm': 0.2000},
         }
-    cutoff = {
-        'ndvi' : {'msi_agm': 0.0000, 'oli_agm' : 0.0000, 'tm_agm': 0.0000},
+    threshold = {
+        'ndvi' : {'msi_agm': 0.05, 'oli_agm' : 0.05, 'tm_agm': 0.05},
         }
     count = 0
     for inst in list(('msi','oli','tm')):
         inst_agm = inst+'_agm'
         if inst_agm in ds_annual.data_vars: 
             scale = reference_mean['ndvi']['msi_agm'] / reference_mean['ndvi'][inst_agm]
-            if test : print(inst_agm)
-                
+            # --- calculate the NDVI for this sensor ---
             ndvi_data = \
-                (ds_annual[ndvi_bands[inst][0]+'_agm'] - ds_annual[ndvi_bands[inst][1]+'_agm']) / \
-                (ds_annual[ndvi_bands[inst][0]+'_agm'] + ds_annual[ndvi_bands[inst][1]+'_agm']) * scale
+                ((ds_annual[ndvi_bands[inst][0]+'_agm'] - ds_annual[ndvi_bands[inst][1]+'_agm']) / \
+                 (ds_annual[ndvi_bands[inst][0]+'_agm'] + ds_annual[ndvi_bands[inst][1]+'_agm'])) * scale
+
 
             # --- set nans to zero, and also in the agm_count variable in the dataset which is more logically zero rather than nan
             ndvi_data                    = np.where(~np.isnan(ndvi_data),ndvi_data,0)
-            ds_annual[inst_agm+'_count'] = (ds_annual[inst_agm+'_count'].dims), np.where(~np.isnan(ds_annual[inst_agm+'_count']),ds_annual[inst_agm+'_count'],0)
+            ds_annual[inst_agm+'_count'] = xr.where(~np.isnan(ds_annual[inst_agm+'_count']),ds_annual[inst_agm+'_count'],0)
 
             # --- this step must be done before thresholding for the instrument, since that brings in nans
             if count == 0: 
                 mean_ndvi = ndvi_data * ds_annual[inst_agm+'_count']
                 agm_count =             ds_annual[inst_agm+'_count']
             else :    
-                mean_ndvi = mean_ndvi + ndvi_data
+                mean_ndvi = mean_ndvi + ndvi_data * ds_annual[inst_agm+'_count']
                 agm_count = agm_count + ds_annual[inst_agm+'_count']
             count = count + 1
 
             # --- trim the ndvi values back to relevant areas and values
-            ndvi_data = np.where(ndvi_data > cutoff['ndvi']['msi_agm'],ndvi_data,np.nan)
-            ndvi_data = np.where(ds_annual.wofs_5yr_freq > WAFT,ndvi_data,np.nan)
+            ndvi_data = np.where(ndvi_data > threshold['ndvi']['msi_agm'],ndvi_data,np.nan)
+            ndvi_data = np.where(~np.isnan(water_mask),ndvi_data,np.nan)   # new code with mask 
 
             # --- this retains an ndvi for each instument, but that is not essential
             ds_annual[inst_agm+'_ndvi'] = (ds_annual.wofs_ann_freq.dims),ndvi_data
 
     # --- divide by the total count to get the actual mean, then trim back to relevant values and areas
     mean_ndvi = mean_ndvi / agm_count
-    mean_ndvi = np.where(mean_ndvi > cutoff['ndvi']['msi_agm'],mean_ndvi,np.nan)
-    mean_ndvi = np.where(ds_annual.wofs_5yr_freq > WAFT       ,mean_ndvi,np.nan)
+    mean_ndvi = np.where(mean_ndvi > threshold['ndvi']['msi_agm'] ,mean_ndvi,np.nan)
+    mean_ndvi = np.where(~np.isnan(water_mask)                    ,mean_ndvi,np.nan)
 
     ds_annual['agm_ndvi'] = (ds_annual.wofs_ann_freq.dims), mean_ndvi
     return(ds_annual)
 
-def geomedian_NDVI_percent_affected (ds_annual,agm_ndvi_cutoff=None,WAFT=None) :
-    # calculate the percent of the water area that is affected. For this to work it is important to take a longer term view of 
-    # the wofs frequency since the annual frequency is reduced due to the presence of water hyacinth etc. in affected areas.
-    # The wofs_5yr_frequency is used.
-    if agm_ndvi_cutoff == None: agm_ndvi_cutoff  = 0.20   ## --- empirically determined; values over this are considered to be indicative of Surface photosynthetic material
-    if WAFT            == None: WAFT             = 0.45   #water frequency threshold for deciding water from non-water
-    
-    water_pixels     = ds_annual.where(ds_annual.wofs_5yr_freq > WAFT).wofs_5yr_freq.count(dim=('x','y'))
-
-    ds_annual['ndvi_percent_cover'] = ('time'), \
-            (ds_annual.where(ds_annual.wofs_5yr_freq > WAFT)\
-            .where(ds_annual.agm_ndvi > agm_ndvi_cutoff)\
-             .agm_ndvi\
-            .count(dim= ('x','y'))*100/water_pixels).data
-    
-    return(ds_annual)
-
+            
     
 # ------------------------------------------------------------------------------------------------------------------------------------
 #     Values from different sensors are standardised using mean values developed empirically, with MSI taken as the reference becasue there are more msi data. 
@@ -155,7 +604,7 @@ def geomedian_FAI (ds_annual,water_mask,test=False):
         'fai'  : {'msi_agm': 0.0970, 'oli_agm' : 0.1015, 'tm_agm': 0.0962},
         }
     threshold = {
-        'fai' : {'msi_agm': 0.01   , 'oli_agm' : 0.01   , 'tm_agm': 0.01},
+        'fai' : {'msi_agm': 0.05   , 'oli_agm' : 0.05   , 'tm_agm': 0.05},
         }
     if test : print('starting')
     count = 0   
@@ -163,18 +612,13 @@ def geomedian_FAI (ds_annual,water_mask,test=False):
         inst_agm = inst+'_agm'
         if inst_agm in ds_annual.data_vars: 
             scale = reference_mean['fai']['msi_agm'] / reference_mean['fai'][inst_agm]
-            if test: print('\n',inst_agm,scale)
 
             # --- calculate the FAI for this sensor
             fai_data = FAI(ds_annual,inst_agm,test = False) * scale
-            #if test: print('\n',fai_data)
 
             # --- set nans to zero, and also in the agm_count variable
             fai_data                     = np.where(~np.isnan(fai_data),fai_data,0)
             ds_annual[inst_agm+'_count'] = xr.where(~np.isnan(ds_annual[inst_agm+'_count']),ds_annual[inst_agm+'_count'],0)
-
-            if test: print('\n','fai data : ',fai_data)
-            if test: print('\n','agm count: ',ds_annual[inst_agm+'_count'])
 
             # --- this step must be done before thresholding for the instrument, since that brings in nans
             if count == 0: 
@@ -228,17 +672,138 @@ def FAI (ds, instrument, test=False):
     nir, l_nir   = ib[instrument]['nir'][0], ib[instrument]['nir'] [1]
     swir,l_swir  = ib[instrument]['swir'][0],ib[instrument]['swir'][1]
 
-    if test: 
-        print('red : ',red,l_red)
-        print('nir : ',nir,l_nir)
-        print('swir: ',swir,l_swir)
-        print((l_nir - l_red )/(l_swir-l_red))
             
     # --- final value is scaled by 10000 to reduce to a value typically in the range of 0-1 (this assumes that our data are scaled 0-10,000)     
     return((ds[nir] - ( ds[red] + ( ( ds[swir] - ds[red] ) * ( ( l_nir - l_red ) / ( l_swir - l_red ) ) ) )) / 10000)
+
+# ------------------------------------------------------------------------------------------------------------------
+# A function to set the dictionary of instruments, bands, algorithms, and  functions ----------------------- 
+# --- revised to do away with the 'r' suffix
+# --- revised to remove duplication, with the suffix argument used to decide if the analysis is annual geomedian or other
+
+def set_wq_algorithms(suffix=''):
+    s = suffix
+    ndci_nir_r   =  { 
+                "msi"+s   : {'54' : {'func': NDCI_NIR_R, "wq_varname" : 'ndci_msi54'       ,'args' : {"NIR_band" : 'msi05'+s , "red_band" :'msi04'+s}},
+                               '64' : {'func': NDCI_NIR_R, "wq_varname" : 'ndci_msi64'     ,'args' : {"NIR_band" : 'msi06'+s , "red_band" :'msi04'+s}},
+                               '74' : {'func': NDCI_NIR_R, "wq_varname" : 'ndci_msi74'     ,'args' : {"NIR_band" : 'msi07'+s , "red_band" :'msi04'+s}}},
+                "tm"+s    : {'func': NDCI_NIR_R, "wq_varname" : 'ndci_tm43'            ,'args' : {"NIR_band" : 'tm04'+s  , "red_band" : 'tm03'+s}},
+                "oli"+s   : {'func': NDCI_NIR_R, "wq_varname" : 'ndci_oli54'           ,'args' : {"NIR_band" : 'oli05'+s , "red_band" :'oli04'+s}}
+                }
+
+    chla_toming  = { #looks more like a tss indicator!
+                    "msi"+s     : {'func': ChlA_Toming, "wq_varname" : 'chla_toming_msi' , 'args' : {"band5" : 'msi05'+s , "band4":'msi04'+s , 'band6' : 'msi06'+s }}
+                    }
+    chla_3bda    = { 
+                    "msi"+s     : {'func': ChlA_3BDA, "wq_varname" : 'chla_3bda_msi' , 'args' : {"blue_band" : 'msi02'+s , "red_band":'msi04'+s , 'green_band' : 'msi03'+s }},
+                    "oli"+s     : {'func': ChlA_3BDA, "wq_varname" : 'chla_3bda_oli' , 'args' : {"blue_band" : 'oli02'+s , "red_band":'oli04'+s , 'green_band' : 'oli03'+s }},
+                    "tm"+s      : {'func': ChlA_3BDA, "wq_varname" : 'chla_3bda_tm'  , 'args' : {"blue_band" : 'tm01'+s  , "red_band":'tm03'+s  , 'green_band' : 'tm02'+s  }}
+                    }
+    chla_tebbs  = {  #this is just a ratio of two bands
+                    "msi"+s     : {'func': ChlA_Tebbs, "wq_varname" : 'chla_tebbs_msi' , 'args' : {"NIR_band" : 'msi8a'+s , "Red_band":'msi04'+s  }},
+                    "oli"+s     : {'func': ChlA_Tebbs, "wq_varname" : 'chla_tebbs_oli' , 'args' : {"NIR_band" : 'oli05'+s , "Red_band":'oli04'+s  }},
+                    "tm"+s      : {'func': ChlA_Tebbs, "wq_varname" : 'chla_tebbs_tm'  , 'args' : {"NIR_band" : 'tm04'+s  , "Red_band":'tm03'+s  }}
+                    }
+    chla_meris2b = {
+                    "msi"+s     : {'func': ChlA_MERIS2B, "wq_varname" : 'chla_meris2b_msi'     ,'args' : {"band_708" : 'msi05'+s     , "band_665":'msi04'+s    }}
+                    }
+
+    chla_modis2b = {
+                    "msi"+s  : {'func': ChlA_MODIS2B, "wq_varname" : 'chla_modis2b_msi'        , 'args' : {"band_748" : 'msi06'+s , "band_667":'msi04'+s}},
+                     "tm"+s  : {'func': ChlA_MODIS2B, "wq_varname" :  'chla_modis2b_tm'        , 'args' : {"band_748" :  'tm04'+s , "band_667": 'tm03'+s}}
+                    }
+
+    ndssi_rg     = {
+                "msi"+s     : {'func': NDSSI_RG,     "wq_varname" : 'ndssi_rg_msi'            ,'args'   : { "red_band":'msi04'+s    , "green_band":'msi03'+s    }},
+                "oli"+s     : {'func': NDSSI_RG,     "wq_varname" : 'ndssi_rg_oli'            ,'args'   : { "red_band":'oli04'+s    , "green_band":'oli03'+s    }},
+                "tm"+s      : {'func': NDSSI_RG,     "wq_varname" : 'ndssi_rg_tm'             ,'args'   : { "red_band":'tm03'+s     , "green_band": 'tm02'+s    }}
+                }
+
+    ndssi_bnir   = {   
+                #"msi"     : {'func': NDSSI_BNIR,   "wq_varname" : 'ndssi_bnir_msi'         ,'args' : { "NIR_band":'msi8a'     , "blue_band":'msi02_agm'}},
+                "oli"+s     : {'func': NDSSI_BNIR,   "wq_varname" : 'ndssi_bnir_oli'         ,'args' : { "NIR_band":'oli06'+s     , "blue_band":'oli02'+s    }},
+                #"tm"+s      : {'func': NDSSI_BNIR,   "wq_varname" : 'ndssi_bnir_tm'          ,'args' : { "NIR_band":'tm04'+s      , "blue_band":'tm01'+s    }}
+                }
+
+    ti_yu        = {
+                    #"msi"     : {'func': TI_yu,        "wq_varname" : 'ti_yu_msi'            ,'args' : {"NIR" : 'msi8a'     , "Red":'msi04'    , "Green":'msi03_agm'}},
+                    "oli"+s     : {'func': TI_yu,        "wq_varname" : 'ti_yu_oli'            ,'args' : {"NIR" : 'oli06'+s     , "Red":'oli04'+s    , "Green":'oli03'+s    }},
+                    "tm"+s      : {'func': TI_yu,        "wq_varname" : 'ti_yu_tm'             ,'args' : {"NIR" : 'tm04'+s      , "Red":  'tm03'+s     , "Green":'tm02'+s    }}
+                    }
+
+    tsm_lym      = {
+                    "oli"+s     : {'func': TSM_LYM_OLI,  "wq_varname" : 'tsm_lym_oli'            ,'args' : {"red_band":'oli04'+s    , "green_band":'oli03'+s    }},
+                    "msi"+s     : {'func': TSM_LYM_OLI,  "wq_varname" : 'tsm_lym_msi'            ,'args' : {"red_band":'msi04'+s    , "green_band":'msi03'+s    }},
+                    "tm"+s      : {'func': TSM_LYM_ETM,  "wq_varname" : 'tsm_lym_tm'             ,'args' : {"red_band":'tm03'+s     , "green_band":'tm02'+s     }}
+                    }
+
+    spm_qiu      = {
+                    "tm"+s      : {'func': SPM_QIU,  "wq_varname" : 'spm_qiu_tm'             ,'args' : {"red_band":'tm03'+s     , "green_band":'tm02'+s     }},
+                    "msi"+s     : {'func': SPM_QIU,  "wq_varname" : 'spm_qiu_msi'            ,'args' : {"red_band":'msi04'+s    , "green_band":'msi03'+s    }}
+                    }
+
+    tss_zhang23    = {
+                        "msi"+s     : {'func': TSS_Zhang23, "wq_varname" : 'tss_zhang23_msi'     ,'args' : {"G" : 'msi03'+s    , "R":'msi04'+s    , "B":'msi02'+s }},
+                        "oli"+s     : {'func': TSS_Zhang23, "wq_varname" : 'tss_zhang23_oli'     ,'args' : {"G" : 'oli03'+s    , "R":'oli04'+s    , "B":'oli02'+s }},
+                        "tm"+s      : {'func': TSS_Zhang23, "wq_varname" : 'tss_zhang23_tm'      ,'args' : {"G" : 'tm02'+s     , "R":'tm03'+s     , "B":'tm01'+s  }}
+                        }
+    tss_GRB       = {
+                        "msi"+s     : {'func': TSS_GreenRedBlue, "wq_varname" : 'tss_grb_msi'     ,'args' : {"G" : 'msi03'+s    , "R":'msi04'+s    , "B":'msi02'+s }},
+                        "oli"+s     : {'func': TSS_GreenRedBlue, "wq_varname" : 'tss_grb_oli'     ,'args' : {"G" : 'oli03'+s    , "R":'oli04'+s    , "B":'oli02'+s }},
+                        "tm"+s      : {'func': TSS_GreenRedBlue, "wq_varname" : 'tss_grb_tm'      ,'args' : {"G" : 'tm02'+s     , "R":'tm03'+s     , "B":'tm01'+s  }}
+                        }
+    tss_zhang21    = {
+                        "msi"+s     : {'func': TSS_Zhang21, "wq_varname" : 'tss_zhang21_msi'     ,'args' : {"G" : 'msi03'+s    , "R":'msi04'+s }},
+                        "oli"+s     : {'func': TSS_Zhang21, "wq_varname" : 'tss_zhang21_oli'     ,'args' : {"G" : 'oli03'+s    , "R":'oli04'+s }},
+                        "tm"+s      : {'func': TSS_Zhang21, "wq_varname" : 'tss_zhang21_tm'      ,'args' : {"G" : 'tm02'+s     , "R":'tm03'+s  }}
+                        }
+    tss_GR       = {
+                        "msi"+s     : {'func': TSS_GreenRed, "wq_varname" : 'tss_gr_msi'      ,'args' : {"G" : 'msi03'+s    , "R":'msi04'+s }},
+                        "oli"+s     : {'func': TSS_GreenRed, "wq_varname" : 'tss_gr_oli'      ,'args' : {"G" : 'oli03'+s    , "R":'oli04'+s }},
+                        "tm"+s      : {'func': TSS_GreenRed, "wq_varname" : 'tss_gr_tm'       ,'args' : {"G" : 'tm02'+s     , "R":'tm03'+s  }}
+                        }
+
+    # ---- algorithms are grouped into two over-arching dictionaries ---- 
+    algorithms_chla = {"ndci_nir_r"   : ndci_nir_r, 
+                       "chla_toming"  : chla_toming, 
+                       "chla_3bda"  : chla_3bda, 
+                       "chla_tebbs"  : chla_tebbs, 
+                       "chla_meris2b" : chla_meris2b, 
+                       "chla_modis2b" : chla_modis2b}
+    algorithms_tsm  = {"ndssi_rg"     : ndssi_rg  , 
+                       "ndssi_bnir"   : ndssi_bnir, 
+                       "ti_yu"        : ti_yu     ,
+                       "tsm_lym"      : tsm_lym   ,
+#                       "tss_zhang23"  : tss_zhang23 ,   
+#                       "tss_zhang21"  : tss_zhang21 ,
+                       "tss_grb"      : tss_GRB ,
+                       "tss_gr"       : tss_GR ,
+                       "spm_qiu"      : spm_qiu    }
+    return(algorithms_chla,algorithms_tsm)
+    
+
+
 # ------------------------------------------------------------------------------------------------------------------------------------
+def ChlA_Toming(dataset, band5, band4, band6, verbose=False):
+# ---- Function to calculate ndci from input nir and red bands ----
+    return  (dataset[band5] - 0.5 * ( dataset[band4] / dataset[band6] ) )
+# ------------------------------------------------------------------------
+def ChlA_3BDA(dataset, blue_band, green_band, red_band, verbose=False):
+    #
+    # as described in Byrne et al 2024:  LAQUA: a LAndsat water QUality retrieval tool for east African lakes
+    #
+    scale = 1 / 10000.    #the reflectances should be less than one foe this function to make sensse
+    return  ((dataset[blue_band] * scale )  -  ( dataset[red_band] * scale * dataset[green_band] * scale ) )
+
+# ------------------------------------------------------------------------
+def ChlA_Tebbs(dataset, NIR_band, Red_band, verbose=False) :
+    # ---- the paramters are optional but for completeness ... ----
+    a0 = -135
+    a1 = 451  
+    return  (a0 + a1 * ( dataset[NIR_band] / dataset[Red_band] ) )
 
 
+# ------------------------------------------------------------------------
 def NDCI_NIR_R(dataset, NIR_band, red_band, verbose=False):
 # ---- Function to calculate ndci from input nir and red bands ----
     return  (dataset[NIR_band] - dataset[red_band])/(dataset[NIR_band] + dataset[red_band])
@@ -259,6 +824,7 @@ def NDCI_NIR_R(dataset, NIR_band, red_band, verbose=False):
 
      MODIS2B = 190.34 * (ds.msi06/ ds.msi04r) - 32.45
 '''
+# ------------------------------------------------------------------------
 def ChlA_MERIS2B(dataset, band_708, band_665, verbose=False):   #matching MSI bands are 5 and 4
 # ---- Functions to estimate ChlA using the MERIS and MODIS 2-Band models, using closest bands from MSI (6, 5, 4) or other
     if verbose: print("ChlA_MERIS two-band model")
@@ -266,6 +832,7 @@ def ChlA_MERIS2B(dataset, band_708, band_665, verbose=False):   #matching MSI ba
     return  (25.28 * (X)**2) + 14.85 * (X) - 15.18
 
 
+# ------------------------------------------------------------------------
 def ChlA_MODIS2B(dataset, band_748, band_667,verbose=False):  #matching MSI bands are 6 and 4
     if verbose: print("ChlA_MODIS two-band model")
     X = dataset[band_748] / dataset[band_667]
@@ -276,45 +843,52 @@ def ChlA_MODIS2B(dataset, band_748, band_667,verbose=False):  #matching MSI band
 #        red-green / red_+green, or,
 #        blue-NIR / blue + NIR
 
+# ------------------------------------------------------------------------
 def NDSSI_RG(dataset, red_band, green_band,verbose=False):
     if verbose: print("NDSSI_RG")
     return ((dataset[red_band] - dataset[green_band]) / (dataset[red_band] + dataset[green_band]))
 
+# ------------------------------------------------------------------------
 def NDSSI_BNIR(dataset, blue_band, NIR_band,verbose=False):
     if verbose: print("NDSSI_BNIR")
     return ((dataset[blue_band] - dataset[NIR_band]) / (dataset[blue_band] + dataset[NIR_band]))
 
-# ---- Turbidity index of Yu, X. et al.
-#    An empirical algorithm to seamlessly retrieve the concentration of suspended particulate matter 
-#    from water color across ocean to turbid river mouths. Remote Sens. Environ. 235, 111491 (2019).
-#    Used in screening turbid waters for mapping floating algal blooms
-#    Initially developed with TM
-#    -TI = ((Red − green) − (NIR − Rgreen)) ^ 0.5
 
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
 def TI_yu(dataset,NIR,Red,Green,scalefactor=0.01,verbose=False):
+    # ---- Turbidity index of Yu, X. et al.
+    #    An empirical algorithm to seamlessly retrieve the concentration of suspended particulate matter 
+    #    from water color across ocean to turbid river mouths. Remote Sens. Environ. 235, 111491 (2019).
+    #    Used in screening turbid waters for mapping floating algal blooms
+    #    Initially developed with TM
+    #    -TI = ((Red − green) − (NIR − Rgreen)) ^ 0.5
     if verbose: print('TI_yu')
     return  scalefactor * ( ( (dataset[Red] - dataset[Green]) - (dataset[NIR] - dataset[Green]) ) ** 0.5 )
 #    return  scalefactor * ((dataset[Red] - dataset[Green]) - ((dataset[NIR] - dataset[Green]) * 0.5)) correction!
 
-# ---- Lymburner Total Suspended Matter (TSM)
-# Paper: [Lymburner et al. 2016](https://www.sciencedirect.com/science/article/abs/pii/S0034425716301560)
-# Units of mg/L concentration. Variants for ETM and OLT, slight difference in parameters.
-# These models, developed by leo lymburner and arnold dekker, are simple, stable, and produce credible # 
-# results over a range of observations
-
+# ------------------------------------------------------------------------
 def TSM_LYM_ETM(dataset, green_band, red_band, scale_factor=0.0001,verbose=False):
+    # ---- Lymburner Total Suspended Matter (TSM)
+    # Paper: [Lymburner et al. 2016](https://www.sciencedirect.com/science/article/abs/pii/S0034425716301560)
+    # Units of mg/L concentration. Variants for ETM and OLT, slight difference in parameters.
+    # These models, developed by leo lymburner and arnold dekker, are simple, stable, and produce credible # 
+    # results over a range of observations
+
     if verbose: print("TSM_LYM_ETM")
     return 3983 * ((dataset[green_band] + dataset[red_band]) * scale_factor / 2) ** 1.6246
 
+# ------------------------------------------------------------------------
 def TSM_LYM_OLI(dataset, green_band, red_band, scale_factor=0.0001,verbose=False):
         if verbose: print("TSM_LYM_OLI")
         return 3957 * ((dataset[green_band] + dataset[red_band]) * scale_factor / 2) ** 1.6436
 
-# Qui Function to calculate Suspended Particulate Model value
-# Paper: Zhongfeng Qiu et.al. 2013 - except it's not. 
-# This model seems to discriminate well although the scaling is questionable and it goes below zero due # to the final subtraction.
-# (The final subtraction seems immaterial in the context of our work (overly precise) and I skip it.) 
 
+# ------------------------------------------------------------------------
+    # Qui Function to calculate Suspended Particulate Model value
+    # Paper: Zhongfeng Qiu et.al. 2013 - except it's not. 
+    # This model seems to discriminate well although the scaling is questionable and it goes below zero due # to the final subtraction.
+    # (The final subtraction seems immaterial in the context of our work (overly precise) and I skip it.) 
 def SPM_QIU(dataset,green_band,red_band,verbose=False):
     if verbose: print("SPM_QIU")
     return (
@@ -327,38 +901,235 @@ def SPM_QIU(dataset,green_band,red_band,verbose=False):
          #- 1.43
          )
 
-# ---- Quang Total Suspended Solids (TSS)
-# Paper: Quang et al. 2017
-# Units of mg/L concentration
 
+# ------------------------------------------------------------------------
 def TSS_QUANG8(dataset,red_band,verbose=False):
     # ---- Function to calculate quang8 value ----
     if verbose: print("TSS_QUANG8")
     return 380.32 * (dataset.red_band) * 0.0001 - 1.7826
-
-# ---- Model of Zhang et al 2023: ----
-#      This model seems to be funamentally unstable, using band ratios as an exponent 
-#      is asking for extreme values and numerical overflows. It runs to inf all over the place.
-#      Green = B3 520-600; Blue = B2 450-515 Red = B4 630-680
-#  The function is not scale-less.
-#  The factor of 0.0001 is not part of the forumula but  scales back from 10000 range which is clearly 
-#  ridiculous (exp(10000) etc. is not a good number). This therefore avoids overflow. 
-# This model can only be used together with other models and indices; it may handle some situations well...
-
-# --- This measure by Zhang is based on a log regression and therefore requires an exponential making it fundamentally unstable. 
-#     Propose to remove this measure since I can't make it work in the published form. 
-def TSS_Zhang(dataset, blue_band, green_band, red_band, scale_factor=0.0001,verbose=False):
-    if verbose: print("TSS_Zhang")
-    abovezero = .00001  #avoids div by zero if blue is zero
-    GplusR = dataset[green_band] + dataset[red_band]             
-    RdivB  = dataset[red_band] / (dataset[blue_band] + abovezero)   
-    X = (GplusR * RdivB) * scale_factor                          
-    #return(10**(14.44*X))*1.20
-    #return  np.exp(14.44* X)*1.20
-    return  (14.44* X)      #the distribution of results is exponential; this measure will be more stable without raising to the power.
+    # ---- Quang Total Suspended Solids (TSS)
+    # Paper: Quang et al. 2017
+    # Units of mg/L concentration
 
 
-def OWT_pixel(ds,instrument,water_frequency_threshold=0.8,resample_rate=3,verbose=True, test=True):
+# -------------------------------------------------------------------------------------
+#   this is a the Zhang21 model without the exponential model fit
+def TSS_GreenRed (dataset, G, R, scale_factor=0.0001, verbose=False):
+    return( TSS_Zhang21(dataset , G=G , R=R , scale_factor=scale_factor , with_model=False) )
+
+# -------------------------------------------------------------------------------------
+def TSS_Zhang21(dataset, G, R, scale_factor=0.0001, with_model=True , verbose=False):
+
+# ---- Model of Zhang et al 2021 Remote sensing: Landsat Image-Based Retrieval and Analysis of Spatiotemporal 
+#      Variation of Total Suspended Solid Concentration in Jiaozhou Bay, China
+#
+#      Developed for Jiaozhou bay, a limited area with TSS values upto 30 (ie relatively low)
+#      Fundamentals are: (G + R) / (G/R)   
+#                        = G+R  * R/G  
+#      Clearly this scales with the data values so dividing by 10000 is a start point for implementation.
+#      Sensible values are returned if the data are divided by 2pi
+#      Divide by zero is a problem.
+#      To avoid zero division in a consistent manner, I introduce an offset of 1 to all values before scaling. 
+#      (This offset is within the noise)
+#      In fitting the model, the authors introduce an exponent
+#
+#                        Y = 0.71 * exp(21.31X) where X is the combination above
+#      This leads to ridiculous values, making the model useless. 
+#   
+    Green  = dataset[G].where(~(dataset[G]>0),1) * scale_factor 
+    Red    = dataset[R]                          * scale_factor 
+    
+    if with_model :
+            Green = Green / (2 * np.pi)
+            Red   = Red   / (2 * np.pi)
+            return(0.71 * np.e**(21.31 * (Green + Red) * (Red / Green)))
+    else :
+        return( (Green + Red) * (Red / Green) )
+
+# -------------------------------------------------------------------------------------
+#   this is a the Zhang23 model without the exponential model fit
+def TSS_GreenRedBlue (dataset , G , R , B , scale_factor=0.0001 , verbose=False):
+    return( TSS_Zhang23(dataset=dataset , G=G , R=R , B=B , scale_factor=scale_factor , with_model=False) )
+
+# -------------------------------------------------------------------------------------
+def TSS_Zhang23(dataset, B , G , R , scale_factor=0.0001 , with_model=True , verbose=False):
+#    Model of Zhang 2023 
+#    Remote sensing monitoring of total suspended solids concentration in Jiaozhou Bay based on multi-source data
+#    Ecological Indicators 154 (2023) 110513
+#    Developed for Jiaozhou bay in China, low TSS values (less than 20) with cross-reference to MODIS
+#    Fundamentals are: X = (G + R) / ( B/R ) = 
+#                          (G + R) * ( R/B )
+#    This is not scale-free; data must be in reflectance values.
+#    Zero values in the blue must be mitigated to avoid nans coming in.     
+#    
+#    A model is then fitted empirically, viz:
+#                          TSS = 1.20 × exp(14.44 * X)
+#    The inclusion of an exponent makes values from this function ridiculous, in general
+#    HOWEVER: The band combinaton BEFORE the model fit is also useful, showing patterns consistent with NDSSI and Lymburner to which it is closely related
+#    
+#
+    Blue   = dataset[B].where(~(dataset[B]>0),1) * scale_factor 
+    Red    = dataset[R]                          * scale_factor 
+    Green  = dataset[G]                          * scale_factor 
+        
+    if with_model :
+        Green = Green / (2 * np.pi)
+        Red   = Red   / (2 * np.pi)
+        Blue  = Blue  / (2 * np.pi)
+
+        return  (1.20 * np.e**( 14.44 * (Green + Red) * (Red / Blue)  )  )
+    else:
+        return  ( ((Green + Red)*(Red / Blue)) )   
+
+
+def create_OWT_response_models(path='/home/jovyan/dev/deafrica_water_quality/reference_data/',agm=False):   
+    # --- A function to read in Vagelis' reference spectra for Optical Water Types and return 
+    #     the expected response (vector) of each sensor to each OWT.
+    #     
+    #     All water types are included, but inland water types are 1-13
+    #     The data are spectral response curves for each OWT, with a 1-nm step
+    #     The longest wavelength is 800nm
+    #     The response for a specific instrument/band, say oli01, is estimated by integrating the spectrum over the instrument response 
+    #     - ideally that is a convolution, using  the instrument response functions, however   
+    #     - I settle for an average over the central range
+    #     - Checked on 2025-12-12. Corrected the sum to be the mean over the band interval. Corrected the band interval for TM bands in the reference data
+    # --- read in the data ---
+    
+    name = 'Vagelis_OWT_allwaters_mean_standardised.csv'
+    suffix = ''
+    if agm          : suffix = '_agm'
+    # --- read the spectral reflectance models for the optial water types ---
+    filename = path+name
+    with open(filename,'r') as f:
+        OWT_spectra = pd.read_csv(f)
+        OWT_spectra = OWT_spectra[OWT_spectra.index < 13]    # --- limit to the inland water types --
+
+    # --- read in the wavelengths for the bands in oli, tm and msi (spectal response models) ---
+    data = {}
+    for sensor in 'msi','tm','oli':
+        name = 'sensor bands-'+sensor+'.csv'
+        filename = path+name
+        with open(filename,'r') as f:
+             sensor_data = pd.read_csv(f)
+             # rename columns to avoid clashes with reserved words
+             sensor_data.rename(columns={'max': 'l_max','min': 'l_min'}, inplace=True)
+    
+        a = sensor_data
+        # list the bands  that are going to be relevant , ie., less than 800nm
+        band_list = (a[a['l_max']<800].band_name).values # & set(ds.data_vars) 
+        # --- set up a  dataframe to take results for this instrument ---
+        labels = [] 
+        for i in np.arange(1,14): labels = np.append(labels,'OWT-'+str(i))
+
+        inst_OWT = pd.DataFrame(
+            data = {'OWT' : np.arange(1,14,1)}, 
+            index = labels
+            )
+        # --- run through the bands ...
+        for band_name in band_list :
+            # determine the integration interval based on the central wavlength and the width; extract these as integers
+            delta =      a[a['band_name']==band_name]['width'].values * 0.8 *0.5
+            start = int((a[a['band_name']==band_name]['central'].values - delta)[0]) 
+            end   = int((a[a['band_name']==band_name]['central'].values + delta)[0]) 
+            #print(sensor,band_name, start,end)
+
+            # find the start and end column numbers in the response functions and sum over those for each OWT
+            # must allow for the spectral band width  - average not the sum
+            b = OWT_spectra.loc[:,str(start):str(end)].T.mean()    
+            # add to the data frame
+            inst_OWT.insert(inst_OWT.columns.size,band_name+suffix,(b.values))
+        # --- add this data frame to the data dictionary ---
+        data[sensor] = inst_OWT
+        # --- write to a csv file in the current location --- 
+        inst_OWT.to_csv(sensor+'_OWT_vectors.csv')
+    return(data)
+    
+def OWT (ds,instrument,OWT_vectors,agm=False,dp_corrected = False, verbose=True,test=False):
+    # --- this version uses a long-hand approch to calculating the dot product. Inelegant but simple.
+    # --- identify the instrument bands that are relevant and in the dataset
+    resample_rate=1  #legacy stuff
+    if verbose or test : print('\n calculating optical water type (OWT), sensor = ',instrument,' ....\n')
+    agm          = False
+    dp_corrected = False
+    suffix=''
+    if agm          : suffix = suffix + '_agm'
+    if dp_corrected : suffix = suffix + 'r'
+    for col in OWT_vectors.columns.values:     #--- this loop renames the columns so that we can match them with the data variables
+        if col.find(instrument)>-1:
+            OWT_vectors = OWT_vectors.rename(columns={col:col+suffix})  
+    band_list = list(set(ds.data_vars) & set(OWT_vectors.columns.values))
+    band_list.sort()
+    # --- ditch unnecessary columns and rows in the vectors table and calculate the magnitude of each vector
+    OWT_vectors           =  OWT_vectors.drop(columns=list(set(OWT_vectors.columns.values) - set(band_list)))
+    OWT_vectors['length'] = ((OWT_vectors**2).sum(axis=1))**0.5  # calculate the length of each vector  
+    OWT_vectors = OWT_vectors.reset_index().rename(columns={'index':'OWT'})    # brings the OWT labels in as a normal column,'OWT'
+
+    #--- loop through the Optical water types ---
+    start     = True
+    for OWT in OWT_vectors['OWT']:
+        vec = OWT_vectors[OWT_vectors['OWT'] == OWT]  # the vector for this OWT
+        OWT_index = int(OWT[OWT.find('-')+1:])  # the OWT numnber
+        if test: print('OWT number:',OWT_index)
+        #print(OWT_vectors[OWT_vectors['OWT']==OWT])
+        # --- create a dataset for this OWT based on one of he instrument bands ---
+        varname   = band_list[0]
+        if start:
+            start     = False
+            # working variiables
+            mydataset = xr.Dataset({'owt_current' : ds[varname]})
+#            mydataset = xr.Dataset({'owt_current' : ds[varname][:,::resample_rate,::resample_rate]})
+            mydataset['owt_cos_max']        = mydataset['owt_current']*0 + -2  #a number smaller than any cosine
+            mydataset['owt_cos'    ]        = mydataset['owt_current']*0 
+            mydataset['owt_closest']        = mydataset['owt_current']*0 + OWT_index
+            mydataset['self_product']       = mydataset['owt_current']*0 
+            mydataset['vector_product']     = mydataset['owt_current']*0 
+            if test: print('prevailing owt is :',mydataset.owt_closest.median())        
+
+
+        mydataset['self_product'  ] = 0                      
+        mydataset['vector_product'] = 0                      
+        for band in band_list:
+            if test: print('processing band: ',band)
+            mydataset['self_product'  ]  = mydataset['self_product'  ] + ds[band]**2
+            mydataset['vector_product']  = mydataset['vector_product'] + ds[band]*vec[band].item()
+            
+        mydataset['self_product'] = mydataset['self_product'  ] ** 0.5
+        mydataset['owt_cos'     ] = mydataset['vector_product'] \
+                     / (mydataset['self_product'] * vec['length'].values)
+        mydataset['owt_closest'] = xr.where(mydataset['owt_cos'] > mydataset['owt_cos_max'] , OWT_index ,            mydataset['owt_closest'])
+        mydataset['owt_cos_max'] = xr.where(mydataset['owt_cos'] > mydataset['owt_cos_max'] , mydataset['owt_cos'] , mydataset['owt_cos_max'])
+        if test: print('prevailing owt is :',mydataset.owt_closest.median())        
+        
+    
+    if verbose or test : print('....done')
+    if verbose         : 
+        data =  [
+                [0,'zero - unresolved (error)'],
+                [3,'oligotrophic (clear)'],
+                [9,'oligotrophic (clear)'],
+                [13,'oligotrophic (clear)'],
+                [1,'eutrophic and blue-green'],
+                [2,'eutrophic and blue-green'],
+                [4,'eutrophic and blue-green'],
+                [5,'eutrophic and blue-green'],
+                [11,'eutrophic and blue-green'],
+                [12,'eutrophic and blue-green'],
+                [6,'hyper-eutrophic and green-brown'],
+                [7,'hyper-eutrophic and green-brown'],
+                [8,'hyper-eutrophic and green-brown'],
+                [10,'hyper-eutrophic and green-brown']
+                ]
+        data.sort()
+        columns = ['OWT','description']
+        
+        df   = pd.DataFrame(data=data,columns=columns)
+        owt  = mydataset.owt_closest.median().item()
+        if np.isnan(owt) : desc = 'nan value returned'
+        else : desc = df[df['OWT']==owt]['description'].item()
+        print('Prevailng water type is ',owt,' :  ',desc)
+    return(mydataset['owt_closest'])
+
+def OWT_pixel_deprecated (ds,instrument,water_frequency_threshold=0.8,resample_rate=3,verbose=True, test=True):
     # --- Determine the Open Water Type for each pixel, over areas that are usually water. 
     # --- 'instrument' is a dictionary established while building the dataset
     # --- 'resample_rate' is the spatial resample step to reduce the memory required
@@ -511,7 +1282,38 @@ def OWT_pixel(ds,instrument,water_frequency_threshold=0.8,resample_rate=3,verbos
     gc.collect()  #---not sure if this helps but worth a try---
     return da
 
-def hue_adjust(dataset) :
+def hue_adjust_parameters():
+    # --- a function to set the hue adjustment parameters; a quintic polynomial model ---
+    return(pd.DataFrame(
+            data = {
+                'label' :  ['Resolution','a5','a4' ,'a3' , 'a2',  'a', 'offset'],
+                'msi' :  [20, -161.23, 1117.08, -2950.14, 3612.17, -1943.57, 364.28],
+                'oli' :  [ 30, -52.16, 373.81,  -981.83, 1134.19, -533.61, 76.72],
+                'tm'  :  [ 30, -84.94, 594.17, -1559.86, 1852.50, -918.11, 151.49]
+            }))
+
+def hue_adjust(dataset,instrument='msi') :  # revised version a bit more compact and tidy 
+    # hue adjustment coefficients for MSI. This is the final step in calculating the hue value
+    # I am sure that there are more efficient ways to code this as a matrix multiplication but at least this is transparent! 
+    # ---- this function makes an adjustment to the hue to produce the final value ----
+    #      These quintic functions run off the scale if the hue value is less than about 25 or greater than about 240.
+    #      It may be necessary to put a condition on the adjustment to avoid invalid results.
+    #      However, provided only water pixels are included, results seem okay
+    
+    if instrument in ('msi_agm','oli_agm','tm_agm'): instrument = instrument[0:instrument.find('_agm')]
+    hap          = hue_adjust_parameters()
+    coefficients = hap[instrument][hap[np.isin(hap.label,['a5','a4','a3','a2','a','offset',])].index].values   
+    
+    dataset['hue_delta'] = (dataset['hue']/100)**5 * coefficients[0]  +   \
+               (dataset['hue']/100)**4 *coefficients[1] + \
+               (dataset['hue']/100)**3 *coefficients[2] + \
+               (dataset['hue']/100)**2 *coefficients[3] + \
+               (dataset['hue']/100)**1 *coefficients[4] + \
+               (dataset['hue']/100)**0 *coefficients[5]
+    dataset['hue'] = dataset['hue'] + dataset['hue_delta']
+    return(dataset.drop_vars('hue_delta'))
+    
+def hue_adjust_old_version(dataset) :
     # hue adjustment coefficients for MSI. This is the final step in calculating the hue value
     # I am sure that there are more efficient ways to code this as a matrix multiplication but at least this is transparent! 
     # ---- this function makes an adjustment to the hue to produce the final value ----
@@ -528,9 +1330,175 @@ def hue_adjust(dataset) :
     dataset = dataset.drop_vars('hue_delta')
     return(dataset)
 
-def hue_calculation(dataset,instrument='msi_agm',test=False,verbose=False) : 
-    #---- the hue is calculated by conversion of the wavelengths to chromatic coordinates using sensor-specific coefficients
+def chromatic_coefficient_parameters():
+    msi = pd.DataFrame({
+        'nm'   : ['R400','R490'  ,'R560'  ,'R665'   ,'R705' ,'R710'],
+        'band' : [''    , '2'    , '3'    , '4'     , '5'   ,''],
+        'name' : [''    , 'msi02', 'msi03', 'msi04' , 'msi05'   ,''],
+        'X'    : [ 8.356 , 12.040 , 53.696 , 32.028 , 0.529 , 0.016 ],
+        'Y'    : [ 0.993 , 23.122 , 65.702 , 16.808 , 0.192 , 0.006 ],
+        'Z'    : [ 43.487, 61.055 , 1.778  , 0.015  , 0.000 , 0.000 ],
+    }, )
+
+    oli = pd.DataFrame({
+        'nm'   : ['R400' , 'R443' , 'R482' , 'R561' , 'R655' , 'R710'],
+        'band' : [  ''   ,    '1' ,   '2'  ,   '3'  ,   '4'  ,   ''  ],  
+        'name' : [  ''   , 'oli01' ,'oli02' ,'oli03', 'oli04',   ''  ],  
+        'X'    : [ 2.217 , 11.053 ,  6.950 , 51.135 , 34.457 , 0.852 ],
+        'Y'    : [ 0.082 , 1.320  , 21.053 , 66.023 , 18.034 , 0.311 ],
+        'Z'    : [ 10.745 , 58.038 , 34.931 , 2.606 ,  0.016 , 0.000 ]
+        })
+
+    tm = pd.DataFrame({
+        'nm'   : [ 'R400' ,  'R485', 'R565' , 'R660' , 'R710' ],
+        'band' : [  ''    ,    '1' ,  '2'   ,   '3'  , ''     ],
+        'name' : [  ''    ,  'tm01', 'tm02' ,  'tm03', ''     ],
+        'X'    : [ 7.8195 , 13.104 , 53.791 , 31.304 , 0.6463 ],
+        'Y'    : [ 0.807  , 24.097 , 65.801 , 15.883 , 0.235  ],
+        'Z'    : [ 40.336 , 63.845 , 2.142  , 0.013  , 0.000  ],
+        })
+
+    # --- put the parameters into a dictionary
+    return({'msi':msi,'oli':oli,'tm':tm})
+
+
+def hue_calculation(dataset,instrument='',test=False,verbose=False) : 
+    #---- Hue is calculated by conversion of the wavelengths to chromatic coordinates using sensor-specific coefficients
+    #- Method is as per Van Der Woerd 2018.
+    #- More accurate hue angles are retrieved if more bands are used - but the visible bands are most important
+    #- results for ETM+ are therefore  less accurate than for MSI and OLI?
+    #- the OLI geomedian lacks band 1, so it cannot be used. This leaves a gap in the data.
+    #- examiation of a time series shows clear patterns. Oli data give lower values than msi and tm, which are in good agreement 
+
+    #enter the x,y,z msi chromatic coefficients...
+     #---- the hue is calculated by conversion of the wavelengths to chromatic coordinates using sensor-specific coefficients
+    instr = instrument
+    if instr in ('msi_agm','oli_agm','tm_agm'):  
+        instr = instr[0:instr.find('_agm')]  
+        agm = True
+    else: 
+        agm = False
     
+    ccs = chromatic_coefficient_parameters()[instr]
+
+    # determining the available bands gets a bit messy due to continengcies...
+    required_bands = ccs['name'][ccs['name']!=''].values         # pos
+
+    # --- make two lists of band names ---
+    dsbands = []
+    for name in required_bands:
+        if agm                     : name = name + '_agm'
+        if name in dataset.data_vars    : dsbands.append(name)
+
+    Cdata         = xr.zeros_like(dataset).drop_vars(dataset.data_vars)
+    Cdata['hue'] = ('time','y','x'), np.zeros((dataset.sizes['time'],dataset.sizes['y'],dataset.sizes['x']))
+
+    if np.size(required_bands) != np.size(dsbands) : 
+        print('\n Aborting hue calculation for instrument ',instr,' due to lack of necessary data bands\n')
+        Cdata['hue'] = ('time','y','x'), np.zeros((dataset.sizes['time'],dataset.sizes['y'],dataset.sizes['x']))*np.nan
+        return(Cdata['hue'])
+    
+    for XYZ in 'X','Y','Z':
+        Cdata[XYZ] =  ('time','y','x'), np.zeros((dataset.sizes['time'],dataset.sizes['y'],dataset.sizes['x']))
+        for band in required_bands:
+            dsband       = dsbands[list(required_bands).index(band)] 
+            coeff        = ccs[ccs.name==band][XYZ].values
+            Cdata[XYZ]   = dataset[dsband] * coeff + Cdata[XYZ]
+
+    Cdata["XYZ"] = Cdata['X'] + Cdata['Y'] +  Cdata['Z']
+    Xwhite =  Ywhite = 1 / 3.
+    
+    # ---- normalise the X and Y parameters and conver to a delta from white:
+    Cdata["X"] = Cdata['X'] / Cdata['XYZ'] - Xwhite 
+    Cdata["Y"] = Cdata['Y'] / Cdata['XYZ'] - Ywhite
+    Cdata["Z"] = Cdata['Z'] / Cdata['XYZ']
+    # ---- convert vector to angle ----
+    Cdata['hue'] = np.mod(np.arctan2(Cdata['Y'],Cdata['X'])*(180.00/np.pi) +360.,360)  
+    Cdata = hue_adjust(Cdata,instr)
+    
+    # ---- this gives the correct mathematical angle, ie. from 0 (=east), counter-clockwise as a positive number
+    # ---- note the 'arctan2' function, and that x and y are switched compared to expectations
+    
+    return(Cdata.hue)
+
+def geomedian_hue (ds,water_mask,verbose=False,test=False):
+    # --- revised ,tidier , and without the bug ... I think -- a function to calculate the hue value of the geomedian, allowing for the possibility of multiple sensors at each time point
+    # --- first calculate the hue  for each instrument
+    # --- mask is ignored.
+    ds['agm_hue'] = ('time','y','x'), np.zeros((ds.sizes['time'],ds.sizes['y'],ds.sizes['x']))
+    count         = np.zeros((ds.sizes['time'],ds.sizes['y'],ds.sizes['x']))
+
+    for instr in ['oli','msi','tm'] :
+        instr_agm = instr+'_agm'
+        if instr_agm in ds.data_vars:
+            hue_data = hue_calculation(ds,instr_agm,test=test,verbose=verbose)
+            ds[instr_agm+'_hue'] = ('time','y','x'),hue_data.data
+
+            ds['agm_hue'] = ds['agm_hue'] + \
+            (
+                        xr.where(~np.isnan(ds[instr+'_agm_hue'])  , ds[instr+'_agm_hue'],0) \
+                      * xr.where(~np.isnan(ds[instr+'_agm_hue']), ds[instr+'_agm_count'],0) \
+            ) 
+            count = count + xr.where(~np.isnan(ds[instr+'_agm_hue']), ds[instr+'_agm_count'],0)
+    ds['agm_hue'] = (ds['agm_hue'] / count).where(water_mask)
+    return(ds)
+
+    
+def geomedian_hue_old (ds_annual,water_mask,verbose=False,test=False):
+    # --- a function to calculate the hue value of the geomedian, allowing for the possibility of multiple sensors at each time point
+    # (band one is missing from the oli agm, but perhaps we will be able to do without it)
+    # To combine the hue from multiple sensors we take a weighted mean. 
+    count = 0   
+    for inst in list(('msi','oli','tm')):
+        inst_agm = inst+'_agm'
+        if inst_agm in ds_annual.data_vars: 
+
+            # --- calculate the HUE for this sensor
+            hue_data = hue_calculation(ds_annual,inst_agm,test=test,verbose=verbose)
+
+    
+            # --- set nans to zero, and also in the agm_count variable
+            ds_annual[inst_agm+'_count'] = xr.where(~np.isnan(ds_annual[inst_agm+'_count']),ds_annual[inst_agm+'_count'],0)
+            #negate the counts where there is no data produced 
+            ds_annual[inst_agm+'_count'] = xr.where(~np.isnan(hue_data)                    ,ds_annual[inst_agm+'_count'],0)
+            hue_data                     = np.where(~np.isnan(hue_data)                    ,hue_data                    ,0)
+                      
+            if count == 0: 
+                mean_hue  =  hue_data * ds_annual[inst_agm+'_count']
+                agm_count =             ds_annual[inst_agm+'_count']
+            else :    
+                mean_hue  = mean_hue  + hue_data * ds_annual[inst_agm+'_count']
+                agm_count = agm_count + ds_annual[inst_agm+'_count']
+            count = count + 1
+         
+            #hue_data = np.where(~np.isnan(water_mask),hue_data,np.nan)   # new code with mask 
+
+            # --- this retains a value for each instument, not essential but useful during developement
+            ds_annual[inst_agm+'_hue'] = ('time','y','x'),hue_data
+            ds_annual[inst_agm+'_hue'] = xr.where(water_mask,ds_annual[inst_agm+'_hue'],np.nan)
+
+            #ds_annual[inst_agm+'_hue'] = xr.where(water_mask ,ds_annual[inst_agm+'_hue'] , hue_data)
+
+    # --- divide by the total count to get the actual mean, then trim back to relevant values and areas
+    mean_hue = mean_hue / agm_count
+    ds_annual['agm_hue'] = (ds_annual.wofs_ann_freq.dims), mean_hue.data
+    ds_annual['agm_hue'] = xr.where(water_mask,ds_annual['agm_hue'],np.nan)
+    # ---- trim extreme values that can arise 
+    ds_annual['agm_hue'] = xr.where(ds_annual['agm_hue']>25,
+                                    xr.where(ds_annual['agm_hue'] < 100,ds_annual['agm_hue'],
+                                             np.nan),np.nan)
+    return(ds_annual)
+
+    
+def hue_calculation_old_version(dataset,instrument='msi_agm',test=False,verbose=False) : 
+    #---- the hue is calculated by conversion of the wavelengths to chromatic coordinates using sensor-specific coefficients
+    ### Colour space transformation on MSI data.
+    #- Method is as per Van Der Woerd 2018.
+    #- More accurate hue angles are retrieved if more bands are used;
+    #- results for ETM+ are therefore  less accurate than for MSI and OLI
+    #- Cannot run for OLI at this point, because we don't have band1 in the geomedian
+    #- Results should in general be more accurate with more bands, but MSI, OLI and ETM are limited
+
     #enter the x,y,z msi chromatic coefficients...
     chrom_coeffs = {
         'X': {'msi01':8.356, 'msi02':12.040,'msi03': 53.696,'msi04':32.028,'msi05': 0.529}, #x msi chromaticity
@@ -593,7 +1561,100 @@ def hue_calculation(dataset,instrument='msi_agm',test=False,verbose=False) :
         if test:Cdata['Ynd'].sel(time=slice('2019','2020')).plot(col='time',robust=True,vmin=0)#,vmax=360,cmap='hsv')
     return Cdata['hue'],Cdata_summary['hue']  #the second output is not required for pixel-level processing, but is used by some of my code. 
 
-def R_correction(ds,dp_adjust,instruments,water_frequency_threshold=0.9,verbose=False,test=True):
+# --- Dark pixel correction - preparing inputs 
+#    'dp_adjust_parameters' dictionary controls which variables are used as a reference, 
+#     and which are changed, in the dark-pixel correction.
+
+#     Revised code 2025-10-07 to cater for non-geomedian situations. 
+
+
+def testfunction():
+    print('testfunction')
+    
+def apply_R_correction(ds,
+                       instr_list,
+                       water_mask, 
+                       drop = True,
+                       test=False,
+                       verbose=False):
+    if test : print('running the r correction...')
+
+    dp_adjust_parameters = { 
+        'msi': {'ref_var':'msi12' , 'var_list': ['msi04','msi03','msi02','msi01','msi05','msi06', 'msi07']},
+        'oli': {'ref_var':'oli07' , 'var_list': ['oli04','oli03','oli02','oli01']},
+        'tm' : {'ref_var': 'tm07' , 'var_list': [ 'tm04', 'tm03', 'tm02', 'tm01']}
+        }
+    # --- check the instrument list against the dataset  --- 
+    instr_list = list(set(instr_list) & set(ds.data_vars))    
+    # ---- check the reference variables against the dataset --- 
+    templist  = instr_list
+    for instr in templist:
+        # item_number = templist == instr #  # --- this seemed like a mistake... does not always work... 
+        item_number = np.where(np.isin(templist,instr))[0].item()  
+        agm        = False ; suffix = ''
+        if instr.find('_agm') > 0:
+            agm     = True; suffix = instr[instr.find('_agm'):]
+            instr   = instr[0:instr.find('_agm')]
+        if not    dp_adjust_parameters[instr]['ref_var']+suffix in ds.data_vars:
+            instr_list.pop(item_number)    
+    if test : print('running the r correction',instr_list,dp_adjust_parameters,'...')
+    ds = R_correction(ds=ds,
+                      instr_list=instr_list,
+                      dp_adjust_parameters=dp_adjust_parameters,
+                      water_mask = water_mask,
+                      drop = drop,
+                      verbose=verbose,
+                      test=test)
+    return(ds)
+
+
+def R_correction(ds,instr_list,dp_adjust_parameters,water_mask,drop=True,verbose=False,test=True):
+    #--- Rayleigh correction - dark pixel adjustment ---
+    #--- for each variable in the list, reduce by the value of the ref_variable, over target areas ---
+    #--- target areas are areas withing the provided water mask 
+    #-------------------------------------------------------------------------------------------------------------
+    # --- the 'dp_adjust' dictionary passed in as an argument controls which variables are used as a reference, and which are changed 
+    # --- it is assumed at this point that the relvant variables are in the dataset.  (Checks are done in the calling function).
+    if test : print('hello world')
+    for instr in instr_list:
+        agm = False;  suffix = ''
+        if  instr.find('_agm') > 0 :    
+            suffix = instr[instr.find('_agm'):]
+            agm = True; 
+            instr = instr[0:instr.find('_agm')]
+       
+        reference_var = dp_adjust_parameters[instr]['ref_var']+suffix
+        for target_var in dp_adjust_parameters[instr]['var_list']:
+            target_var = target_var+suffix
+            new_var    = target_var+'r'
+            if new_var in ds.data_vars: ds=ds.drop_vars(new_var)
+            if not target_var in ds.data_vars :
+                print('---variable -->  ',target_var,'  <-- anticipated but not found in the dataset (non-fatal)')
+            else:
+                ds[new_var] = ds[reference_var]*0.0
+                ds[new_var] = xr.where(ds[target_var]>0,xr.where(ds[target_var] > ds[reference_var] ,ds[target_var] - ds[reference_var] , ds[target_var]),np.nan)
+                
+                ds[new_var] = xr.where(water_mask,ds[new_var],ds[target_var]) 
+                #print('stopping')
+                #return(ds)
+                if drop :
+                    ds = ds.drop_vars(target_var)
+                    ds = ds.rename   ({new_var : target_var})
+
+    if test or verbose and not drop : #plot graphs illustrating the shift in the cumulative distribution
+        
+            quantiles = np.arange(0,1,.01)
+            plt.plot(ds['msi02_agmr'].quantile(quantiles),quantiles,"b-")
+            plt.plot(ds['msi02_agm'].quantile(quantiles),quantiles,"b--")
+            plt.plot(ds['msi03_agmr'].quantile(quantiles),quantiles,"g-")
+            plt.plot(ds['msi03_agm'].quantile(quantiles),quantiles,"g--")
+            plt.plot(ds['msi04_agmr'].quantile(quantiles),quantiles,"r-")
+            plt.plot(ds['msi04_agm'].quantile(quantiles),quantiles,"r--")
+   
+    if verbose : print('R_correction completed normally')
+    return(ds)
+    
+def R_correction_old(ds,dp_adjust,instruments,water_frequency_threshold=0.9,verbose=False,test=True):
     #--- Rayleigh correction - dark pixel adjustment ---
     #--- for each variable in the list, reduce by the value of the ref_variable, over target areas ---
     #--- target areas are areas where the frequency of water is ge than the water frequency threshold parameter
@@ -713,13 +1774,13 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'Lake_vic_west':       {'run':True, "xyt" :{"x": ( 32.5, 32.78),       "y" : ( -2.65,-2.3),      "time": (year1,year2)  },"desc": ""          },
         'Lake_vic_east':       {'run':True, "xyt" :{"x": ( 32.78, 33.3),       "y" : ( -2.65,-2.3),      "time": (year1,year2)  },"desc": ""          },
         'Lake_vic_test':       {'run':True, "xyt" :{"x": ( 32.78, 33.13),       "y" : ( -1.95,-1.6),      "time": (year1,year2)  },"desc": "Lake Victoria cloud affected"},
-        'Lake_vic_turbid':     {'run':True, "xyt" :{"x": ( 34.60, 34.70),       "y" : ( -.25,-.20),      "time": (year1,year2)  },"desc": "Lake Victoria turbid area in NE"},
+        'Lake_vic_turbid':     {'run':False, "xyt" :{"x": ( 34.60, 34.70),       "y" : ( -.25,-.20),      "time": (year1,year2)  },"desc": "Lake Victoria turbid area in NE"},
         'Lake_vic_algae':      {'run':True, "xyt" :{"x": ( 34.62, 34.78),       "y" : ( -.18,-.08),      "time": (year1,year2)  },"desc": "Lake Victoria Water Hyacinth affected area in NE, port Kisumu"},
         'Lake_vic_clear':      {'run':True, "xyt" :{"x": ( 34.00, 34.10),       "y" : ( -.32,-.27),      "time": (year1,year2)  },"desc": "Lake Victoria clear water area"},
         'Lake_Victoria_NE' :   {'run':True, "xyt" :{'x': (33.5,34.8),         'y': (-.6,0.4),            'time': (year1,year2)  },"desc": 'Lake Victoria NE'},
         'Morocco':             {'run':True, "xyt" :{"x": (-7.45, -7.65),       "y" : (  32.4,32.5),      "time": (year1,year2)  },"desc": "Barrage Al Massira"          },
         'Thewaterskool_SA':    {'run':True, "xyt" :{"x": (19.1, 19.3),         "y" : ( -34.1  , -33.98), "time": (year1,year2)  },"desc": ""          },
-        'SA_dam':              {'run':True, "xyt" :{"x": ( 19.35,   19.47),    "y" : ( -33.800, -33.650),"time": (year1,year2)  },"desc": ""          },
+        'SA_dam':              {'run':False, "xyt" :{"x": ( 19.35,   19.47),    "y" : ( -33.800, -33.650),"time": (year1,year2)  },"desc": ""          },
         'SA_dam_north':        {'run':True, "xyt" :{"x": ( 19.42,   19.44),    "y" : ( -33.73 , -33.699),"time": (year1,year2)  },"desc": ""          },
         'SA_dam_south':        {'run':True, "xyt" :{"x": ( 19.415,  19.431),   "y" : ( -33.781, -33.772),"time": (year1,year2)  },"desc": ""          },
         'Ethiopia1of2':        {'run':True, "xyt" :{"x": ( 38.35,   38.65),    "y" : (   7.37 ,   7.55), "time": (year1,year2)  },"desc": "Ethiopia, Shala Hayk'"          },
@@ -744,8 +1805,8 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'lake_vic_all':        {'run':False, "xyt" :{"x": ( 31.500 , 34.86),   "y" : ( -3.00, +0.50 )    ,"time": (year1,year2)  },"desc": "Lake Victoria"          },
         'lake_elmenteita':     {'run':True, "xyt" :{"x": ( 36.200 , 36.27),   "y" : ( -0.485, -0.390 )  ,"time": (year1,year2)  },"desc": "Lake Elmenteita"          },
         'mombasa':             {'run':True, "xyt" :{"x": ( 39.500 , 39.72),   "y" : ( -4.10 , -3.97  )  ,"time": (year1,year2)  },"desc": "Mombasa"          },
-        'Mauritania_2':        {'run':True, "xyt" :{"x": ( -15.63 , -15.54),   "y" : ( 16.605 , 16.69  ),"time": (year1,year2)},"desc": "Mauritania Wetland"          },
-        'Mauritania_1':        {'run':True, "xyt" :{"x": ( -16.37 , -16.32),   "y" : ( 16.41 , 16.45  ) ,"time": (year1,year2)},"desc": "Mauritania Wetland"          },
+        'Mauritania_2':        {'run':False, "xyt" :{"x": ( -15.63 , -15.54),   "y" : ( 16.605 , 16.69  ),"time": (year1,year2)},"desc": "Mauritania Wetland"          },
+        'Mauritania_1':        {'run':False, "xyt" :{"x": ( -16.37 , -16.32),   "y" : ( 16.41 , 16.45  ) ,"time": (year1,year2)},"desc": "Mauritania Wetland"          },
         'Lake_Nasser_nth':     {'run':True, "xyt" :{"x": (  32.87 ,  32.95),   "y" : ( 23.69 , 23.72  ) ,"time": (year1,year2)},"desc": "Lake Nasser clear water"       },
         'Lake_Nasser_sth':     {'run':True, "xyt" :{"x": (  31.20 ,  31.30),   "y" : ( 21.795, 21.845  ) ,"time": (year1,year2)},"desc": "Lake Nasser turbid water"      },
         'Tana_Hayk'      :     {'run':True, "xyt" :{"x": (  36.95 ,  37.65),   "y" : ( 11.56 , 12.33   ) ,"time": (year1,year2)},"desc": "T'ana Hayk', northern Ethiopia"},
@@ -755,16 +1816,29 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'Barrage Joumine':     {'run':True, "xyt" :{"x": (  09.53 ,  09.62),   "y" : ( 36.952,  37.00  ) ,"time": (year1,year2)},"desc": "Joumine Dam,Tunisia"},
         'Tunisia_Dam'    :     {'run':True, "xyt" :{"x": (  08.53 ,  08.56),   "y" : ( 36.685,  36.75  ) ,"time": (year1,year2)},"desc": "Tunisia"},
         'Lake_Ngami'     :     {'run':True, "xyt" :{"x": (  22.55 ,  22.89),   "y" : ( - 20.6, -20.37  ) ,"time": (year1,year2)},"desc": "Botswana"},
-        'Lake_Chilwa'    :     {'run':True, "xyt" :{"x": (  35.5 ,  35.9),   "y" : ( - 15.6, -14.90  ) ,"time": (year1,year2)},"desc": "Malawi - Lake Chilwa"},
-        'Lake_Malombe'   :     {'run':True, "xyt" :{"x": (  35.15 ,  35.35),   "y" : ( - 14.8, -14.50  ) ,"time": (year1,year2)},"desc": "Malawi - Lake Malombe"},
-        'Lake_Piti'      :     {'run':True, "xyt" :{"x": (  32.85 ,  32.90),   "y" : ( - 26.6, -26.50  ) ,"time": (year1,year2)},"desc": "Mozambique - Lake Piti"},
-        'Maputo_reserve' :     {'run':True, "xyt" :{"x": (  32.79 ,  32.83),   "y" : ( - 26.55, -26.50  ) ,"time": (year1,year2)},"desc": "Mozambique - Maputo reserve"},
-        'Indian_Ocean'   :     {'run':True, "xyt" :{"x": (  57.75 ,  57.80),   "y" : ( - 20.5 , -20.45  ) ,"time": (year1,year2)},"desc": "Mauritius - Oceanic waters"},
-        'Mare_Vacoas'    :     {'run':True, "xyt" :{"x": (  57.48 ,  57.52),   "y" : ( - 20.38 , -20.36  ) ,"time": (year1,year2)},"desc": "Mauritius - Mare aux Vacoas"},
-        'Naute'          :     {'run':True, "xyt" :{"x": (  17.93 ,  18.05),   "y" : ( - 26.97 , -26.92  ) ,"time": (year1,year2)},"desc": "Namibia - Naute reserve"},
-        'Lake_Turkana'   :     {'run':True, "xyt" :{"x": (  35.80 ,  36.72),   "y" : (    2.38 ,   4.79  ) ,"time": (year1,year2)},"desc": "Kenya -- Lake Turkana"},
-        'Haartbeesport_dam':   {'run':True, "xyt" :{"x": (  27.7972, 27.91117), "y" : (-25.7761,-25.7275) ,"time": (year1,year2)},"desc": "Haartbeesport Dam  -- South Africa"},
-        'Lake Bogoria'   :     {'run':True, "xyt" :{"x": (  36.058, 36.133),   "y" : (  0.1791 ,0.3534) ,"time": (year1,year2)},"desc": "Lake Bogoria -- Tanzania"},
+        'Lake_Chilwa'    :  {'run':True, "xyt" :{"x": (  35.5 ,  35.9),   "y" : ( - 15.6, -14.90     ) ,"time": (year1,year2)  },"desc": "Malawi - Lake Chilwa"},
+        'Lake_Malombe'   :  {'run':True, "xyt" :{"x": (  35.15 ,  35.35),   "y" : ( - 14.8, -14.50   ) ,"time": (year1,year2)  },"desc": "Malawi - Lake Malombe"},
+        'Lake_Piti'      :  {'run':True, "xyt" :{"x": (  32.85 ,  32.90),   "y" : ( - 26.6, -26.50   ) ,"time": (year1,year2)  },"desc": "Mozambique - Lake Piti"},
+        'Maputo_reserve' :  {'run':True, "xyt" :{"x": (  32.79 ,  32.83),   "y" : ( - 26.55, -26.50  ) ,"time": (year1,year2)  },"desc": "Mozambique - Maputo reserve"},
+        'Indian_Ocean'   :  {'run':True, "xyt" :{"x": (  57.75 ,  57.80),   "y" : ( - 20.5 , -20.45  ) ,"time": (year1,year2)  },"desc": "Mauritius - Oceanic waters"},
+        'Mare_Vacoas'    :  {'run':True, "xyt" :{"x": (  57.48 ,  57.52),   "y" : ( - 20.38 , -20.36 ) ,"time": (year1,year2)  },"desc": "Mauritius - Mare aux Vacoas"},
+        'Naute'          :  {'run':True, "xyt" :{"x": (  17.93 ,  18.05),   "y" : ( - 26.97 , -26.92 ) ,"time": (year1,year2)  },"desc": "Namibia - Naute reserve"},
+        'Lake_Turkana'   :  {'run':True, "xyt" :{"x": (  35.80 ,  36.72),   "y" : (    2.38 ,   4.79 ) ,"time": (year1,year2)  },"desc": "Kenya -- Lake Turkana"},
+        'Haartbeesport_dam':{'run':True, "xyt" :{"x": (  27.7972, 27.91117), "y": (-25.7761,-25.7275 ) ,"time": (year1,year2)  },"desc": "Haartbeesport Dam  -- South Africa"},
+        'Lake Bogoria'   :  {'run':True, "xyt" :{"x": (  36.058, 36.133),   "y" : (  0.1791 ,0.3534  ) ,"time": (year1,year2)  },"desc": "Lake Bogoria -- Tanzania"},
+        'HC_1'           :  {'run':False, "xyt" :{"x": (30.50, 30.70    ),  "y" : ( -8.00 ,-7.8      ) ,"time": (year1,year2)  },"desc": "Lake Tanganyika -- Tanzania, low turbidity"},
+        'HC_2'           :  {'run':False, "xyt" :{"x": (32.00, 32.20    ),  "y" : ( -8.00 ,-7.80     ) ,"time": (year1,year2)  },"desc": "Lake Rukwa -- Tanzania, very high turbidity"},
+        'HC_3'           :  {'run':False, "xyt" :{"x": (32.61, 33.52    ),  "y" : ( -1.469 , -1.00   ) ,"time": (year1,year2)  },"desc": "lake Victoria lake stations -- TZA 32,37,38"},
+        'HC_4'           :  {'run':False, "xyt" :{"x": (32.85, 32.87    ),  "y" : ( -2.61 , -2.57    ) ,"time": (year1,year2)  },"desc": "lake Victoria lake stations -- TZA 15 -2.5908	32.86835"},
+        'HC_5'           :  {'run':False, "xyt" :{"x": (-6.7502, -6.7473),  "y" : ( 33.9308 , 33.9347) ,"time": (year1,year2)  },"desc": "Morocco near Rabbat -- MAR 00002  -6.75 33.93333 "},
+        'HC_6'           :  {'run':False, "xyt" :{"x": (-7.6360, -7.6308),  "y" : ( 32.4727 , 33.4758) ,"time": (year1,year2)  },"desc": "Morocco -- MAR 00003  -6.75 32.93333 "},
+        'Bizerte_Lake'   :  {'run':True, "xyt" :{"x" : ( 9.7790,  9.9460), 	"y" : (37.128,	37.2460)   ,"time": (year1,year2)  },"desc": "Tunisia"},
+        'Nickel_Lake'    :  {'run':True, "xyt" :{"x" : ( 9.56  ,  9.76  ), 	"y" : (37.10 ,	37.21  )   ,"time": (year1,year2)  },"desc": "Tunisia"},
+        'Lake_Aheme'     :  {'run':True, "xyt" :{"x" : ( 1.9090,  2.0090), 	"y" : (6.381,	6.6080)    ,"time": (year1,year2)  },"desc": "Benin"},
+        'Lake_Nokoue'    :  {'run':True, "xyt" :{"x" : ( 2.3360,  2.5720), 	"y" : (6.377,	6.5240)    ,"time": (year1,year2)  },"desc": "Benin, coastal lake"},
+        'Lake_Tanganyika':  {'run':True, "xyt" :{"x" : (30.3440, 31.3050), 	"y" : (-8.860,	-7.4700)   ,"time": (year1,year2)  },"desc": "Tanzania / Malawi / DRC"},
+        'Lake_Rukwa'     :  {'run':True, "xyt" :{"x" : (31.6500, 32.9800), 	"y" : (-8.500,	-7.3600)   ,"time": (year1,year2)  },"desc": "Tanzania"},
+
         }
 
      #Manyara is a shallow alkaline lake 10 feet deep. https://wildlifesafaritanzania.com/facts-about-lake-manyara-national-park/

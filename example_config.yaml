@@ -1,0 +1,27 @@
+resolution: 10
+instruments_to_use:
+  oli_agm:
+    use: true
+  oli:
+    use: false
+  msi_agm:
+    use: true
+  msi:
+    use: false
+  tm_agm:
+    use: true
+  tm:
+    use: false
+  tirs:
+    use: true
+  wofs_ann:
+    use: true
+  wofs_all:
+    use: false
+water_frequency_threshold_high: 0.5
+water_frequency_threshold_low: 0.1
+permanent_water_threshold : 0.0875
+sigma_coefficient : 1.2
+product:
+  name: wq_annual
+  version: 1.0.0

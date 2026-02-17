@@ -274,6 +274,7 @@ def get_wq_dataset_id(dataset_path: str) -> str:
 
     e.g. wqs_annual_x217y077_2024--P1Y
     """
+    dataset_path = dataset_path.rstrip("/")
     # Parse the dataset path
     if is_local_path(dataset_path):
         (

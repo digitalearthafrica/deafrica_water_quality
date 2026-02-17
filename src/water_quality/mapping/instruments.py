@@ -5,6 +5,21 @@ from water_quality.dates import validate_end_date, validate_start_date
 
 log = logging.getLogger(__name__)
 
+COMPOSITE_INSTRUMENTS = {
+    "tm_agm": ["gm_ls5_ls7_annual"],
+    "oli_agm": ["gm_ls8_annual", "gm_ls8_ls9_annual"],
+    "msi_agm": ["gm_s2_annual"],
+    "wofs_ann": ["wofs_ls_summary_annual"],
+    "tirs": ["ls5_st", "ls7_st", "ls8_st", "ls9_st"],
+}
+SINGLE_DAY_INSTRUMENTS = {
+    "tm": ["ls5_sr", "ls7_sr"],
+    "oli": ["ls8_sr", "ls9_sr"],
+    "msi": ["s2_l2a"],
+}
+INSTRUMENTS_PRODUCTS = {**COMPOSITE_INSTRUMENTS, **SINGLE_DAY_INSTRUMENTS}
+
+
 INSTRUMENTS_DATES = {
     "oli_agm": [2013, 2024],
     "oli": [2013, 2025],
@@ -29,6 +44,17 @@ INSTRUMENTS_MEASUREMENTS = {
         },
         "count_wet": {"varname": ("wofs_ann_wetcount"), "parameters": (True,)},
     },
+    "wofs_all": {
+        "frequency": {
+            "varname": ("wofs_all_freq"),
+            "parameters": (True, "other"),
+        },
+        "count_clear": {
+            "varname": ("wofs_all_clearcount"),
+            "parameters": (True,),
+        },
+        "count_wet": {"varname": ("wofs_all_wetcount"), "parameters": (True,)},
+    },
     "oli_agm": {
         "SR_B2": {"varname": ("oli02_agm"), "parameters": (True, "450-510")},
         "SR_B3": {"varname": ("oli03_agm"), "parameters": (True, "530-590")},
@@ -36,9 +62,9 @@ INSTRUMENTS_MEASUREMENTS = {
         "SR_B5": {"varname": ("oli05_agm"), "parameters": (True, "850-880")},
         "SR_B6": {"varname": ("oli06_agm"), "parameters": (True, "1570-1650")},
         "SR_B7": {"varname": ("oli07_agm"), "parameters": (True, "2110-2290")},
-        "smad": {"varname": ("oli_agm_smad"), "parameters": (True,)},
-        "emad": {"varname": ("oli_agm_emad"), "parameters": (True,)},
-        "bcmad": {"varname": ("oli_agm_bcmad"), "parameters": (True,)},
+        "smad": {"varname": ("oli_agm_smad"), "parameters": (False,)},
+        "emad": {"varname": ("oli_agm_emad"), "parameters": (False,)},
+        "bcmad": {"varname": ("oli_agm_bcmad"), "parameters": (False,)},
         "count": {"varname": ("oli_agm_count"), "parameters": (True,)},
     },
     "oli": {
@@ -68,14 +94,14 @@ INSTRUMENTS_MEASUREMENTS = {
         "B8A": {
             "varname": ("msi8a_agm"),
             "parameters": (
-                False,
+                True,
                 "uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN",
             ),
         },
         "B11": {
             "varname": ("msi11_agm"),
             "parameters": (
-                False,
+                True,
                 "uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN",
             ),
         },
@@ -86,48 +112,69 @@ INSTRUMENTS_MEASUREMENTS = {
                 "uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN",
             ),
         },
-        "smad": {"varname": ("msi_agm_smad"), "parameters": (True,)},
-        "emad": {"varname": ("msi_agm_emad"), "parameters": (True,)},
-        "bcmad": {"varname": ("msi_agm_bcmad"), "parameters": (True,)},
+        "smad": {"varname": ("msi_agm_smad"), "parameters": (False,)},
+        "emad": {"varname": ("msi_agm_emad"), "parameters": (False,)},
+        "bcmad": {"varname": ("msi_agm_bcmad"), "parameters": (False,)},
         "count": {"varname": ("msi_agm_count"), "parameters": (True,)},
     },
     "msi": {
         "B01": {
             "varname": ("msi01"),
-            "parameters": (False, "Coastal aerosol"),
+            "parameters": (
+                False,
+                " 442 bandwidth 20 nm, spatial 60 m, Coastal aerosol",
+            ),
         },
-        "B02": {"varname": ("msi02"), "parameters": (True, "460-525")},
-        "B03": {"varname": ("msi03"), "parameters": (True,)},
-        "B04": {"varname": ("msi04"), "parameters": (True,)},
-        "B05": {"varname": ("msi05"), "parameters": (True,)},
-        "B06": {"varname": ("msi06"), "parameters": (True,)},
-        "B07": {"varname": ("msi07"), "parameters": (True,)},
+        "B02": {
+            "varname": ("msi02"),
+            "parameters": (True, " 493 bandwidth 65 nm, spatial 10 m,"),
+        },
+        "B03": {
+            "varname": ("msi03"),
+            "parameters": (True, " 559 bandwidth 35 nm, spatial 10 m,"),
+        },
+        "B04": {
+            "varname": ("msi04"),
+            "parameters": (True, " 665 bandwidth 31 nm, spatial 10 m,"),
+        },
+        "B05": {
+            "varname": ("msi05"),
+            "parameters": (True, " 704 bandwidth 14 nm, spatial 20 m"),
+        },
+        "B06": {
+            "varname": ("msi06"),
+            "parameters": (True, " 741 bandwidth 13 nm, spatial 20 m,"),
+        },
+        "B07": {
+            "varname": ("msi07"),
+            "parameters": (True, " 780 bandwidth 19 nm, spatial 20 m,"),
+        },
         "B08": {
             "varname": ("msi08"),
             "parameters": (
                 False,
-                "uint16 	1 	0.0 	[band_08, nir, nir_1] 	NaN",
+                " 833 bandwidth 104 nm, spatial 10 m, uint16 	1 	0.0 	[band_08, nir, nir_1] 	NaN",
             ),
         },
         "B8A": {
             "varname": ("msi8a"),
             "parameters": (
-                False,
-                "uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN",
+                True,
+                " 864 bandwidth 21 nm, spatial 20 m, uint16 	1 	0.0 	[band_8a, nir_narrow, nir_2] 	NaN",
             ),
         },
         "B11": {
             "varname": ("msi11"),
             "parameters": (
-                False,
-                "uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN",
+                True,
+                "1612 bandwidth 92 nm, spatial 20 m, uint16 	1 	0.0 	[band_11, swir_1, swir_16] 	NaN",
             ),
         },
         "B12": {
             "varname": ("msi12"),
             "parameters": (
                 True,
-                "uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN",
+                "2193 bandwidth 180 nm, spatial 20 m, uint16 	1 	0.0 	[band_12, swir_2, swir_22] 	NaN",
             ),
         },
         "qa": {"varname": ("msi_qa"), "parameters": (True,)},
@@ -157,9 +204,9 @@ INSTRUMENTS_MEASUREMENTS = {
             "varname": ("tm07_agm"),
             "parameters": (True, "swir2 2080-2350"),
         },
-        "smad": {"varname": ("tm_agm_smad"), "parameters": (True,)},
-        "emad": {"varname": ("tm_agm_emad"), "parameters": (True,)},
-        "bcmad": {"varname": ("tm_agm_bcmad"), "parameters": (True,)},
+        "smad": {"varname": ("tm_agm_smad"), "parameters": (False,)},
+        "emad": {"varname": ("tm_agm_emad"), "parameters": (False,)},
+        "bcmad": {"varname": ("tm_agm_bcmad"), "parameters": (False,)},
         "count": {"varname": ("tm_agm_count"), "parameters": (True,)},
     },
     "tm": {
@@ -263,6 +310,7 @@ def check_instrument_dates(
     instruments_to_use: dict[str, dict[str, bool]],
     start_date: str,
     end_date: str,
+    raise_errors: bool = False,
 ):
     """
     Cross check the years data is available for each instrument against
@@ -277,12 +325,15 @@ def check_instrument_dates(
         Start date of the analysis period.
     end_date : str
         End date of the analysis period.
-
+    raise_errors : bool, optional
+        Whether to raise errors when an instrument is not valid for the
+        analysis period, by default False.
     Returns
     -------
     dict[str, dict[str, bool]]
-        Updated `instruments_to_use` where instruments where data is not available for
-        the analysis period have their usage parameter set to False.
+        Updated `instruments_to_use` where instruments where data is not
+        available for the analysis period have their usage parameter set
+        to False.
     """
     start_date = validate_start_date(start_date)
     end_date = validate_end_date(end_date)
@@ -294,10 +345,12 @@ def check_instrument_dates(
                 instrument_name, None
             )
             if instruments_data_date_range is None:
-                valid_instruments_to_use[instrument_name] = {"use": False}
-                log.error(
-                    f"Valid data date range for instrument {instrument_name} has not been set"
-                )
+                error = f"Valid data date range for instrument {instrument_name} has not been set."
+                if raise_errors:
+                    raise ValueError(error)
+                else:
+                    valid_instruments_to_use[instrument_name] = {"use": False}
+                    log.error(f"{error} \nInstrument use set to False")
             else:
                 instrument_data_start_date = validate_start_date(
                     str(min(instruments_data_date_range))
@@ -314,12 +367,18 @@ def check_instrument_dates(
                 ):
                     valid_instruments_to_use[instrument_name] = {"use": True}
                 else:
-                    valid_instruments_to_use[instrument_name] = {"use": False}
-                    log.error(
+                    error = (
                         f"Instrument {instrument_name} has data for the date range "
                         f"{instrument_data_start_date} to {instrument_data_end_date} which is outside"
                         f" the requested date range of {start_date} to {end_date}."
                     )
+                    if raise_errors:
+                        raise ValueError(error)
+                    else:
+                        valid_instruments_to_use[instrument_name] = {
+                            "use": False
+                        }
+                        log.error(f"{error} \nInstrument use set to False")
         else:
             valid_instruments_to_use[instrument_name] = usage
     return valid_instruments_to_use

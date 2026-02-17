@@ -174,6 +174,7 @@ def get_africa_tiles(
     africa_extent_geom = Geometry(
         geom=africa_extent.iloc[0].geometry, crs=africa_extent.crs
     )
+
     tiles = get_aoi_tiles(africa_extent_geom)
     if save_to_disk is True:
         tiles_gdf = tiles_to_gdf(tiles)
