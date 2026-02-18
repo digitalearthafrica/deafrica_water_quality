@@ -21,7 +21,7 @@ def create_task_id(temporal_id: str, tile_id: tuple[int, int] | str) -> str:
     Parameters
     ----------
     temporal_id : str
-        Temproal range to create the task for.
+        Temporal range to create the task for.
     tile_id : tuple[int, int] | str
         Tile ID for the tile to create the task for.
 
@@ -51,7 +51,7 @@ def parse_task_id(task_id: str) -> tuple[str, int, int]:
         Temporal ID and tile ID components of the task.
     """
     # Check Task id has only 3 parts
-    sep = "/"  # based on seperator used in create_task_id
+    sep = "/"  # based on separator used in create_task_id
     parts = split_and_check(task_id, sep, 3)
 
     # Get the tile ID
@@ -79,3 +79,50 @@ def split_tasks(
             return []
         else:
             return task_chunks[worker_idx]
+
+
+def filter_tasks_by_task_id(
+    all_task_ids: list[tuple[str, int, int]], task_ids: str | list[str]
+) -> list[tuple[str, int, int]]:
+    """Filter tasks by task ID."""
+    if isinstance(task_ids, str):
+        task_filter = [parse_task_id(i.strip()) for i in task_ids.split(",")]
+    else:
+        task_filter = [parse_task_id(i) for i in task_ids]
+
+    filtered_tasks = list(set(task_filter).intersection(set(all_task_ids)))
+
+    return filtered_tasks
+
+
+def check_task_id_for_tile_id(task_id: str, tile_id: str) -> bool:
+    if set(tile_id).issubset(task_id):
+        if tile_id[-1] == task_id[-1]:
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+def filter_tasks_by_tile_id(
+    all_task_ids: list[tuple[str, int, int]], tile_ids: str | list[str]
+) -> list[tuple[str, int, int]]:
+    """Filter tasks by tile ID."""
+    if isinstance(tile_ids, str):
+        tile_filter = [
+            parse_region_code(i.strip()) for i in tile_ids.split(",")
+        ]
+    else:
+        tile_filter = [parse_region_code(i) for i in tile_ids]
+
+    filtered_tasks = list(
+        filter(
+            lambda task_id: any(
+                check_task_id_for_tile_id(task_id, tile_id)
+                for tile_id in tile_filter
+            ),
+            all_task_ids,
+        )
+    )
+    return filtered_tasks

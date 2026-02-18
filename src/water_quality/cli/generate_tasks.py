@@ -3,6 +3,7 @@ import random
 from collections import defaultdict, namedtuple
 from copy import deepcopy
 from datetime import datetime
+from importlib.resources import files
 from itertools import chain, islice
 from types import SimpleNamespace
 from typing import Any
@@ -39,6 +40,10 @@ from water_quality.mapping.config import check_config
 from water_quality.mapping.instruments import (
     INSTRUMENTS_PRODUCTS,
     check_instrument_dates,
+)
+from water_quality.tiling import (
+    get_aoi_tiles,
+    parse_region_code,
 )
 
 SUPPORTED_FREQUENCY = [
@@ -264,7 +269,7 @@ def write_tasks_to_geojson(
 
 
 @click.command(
-    name="save-tasks",
+    name="generate-tasks",
     no_args_is_help=True,
 )
 @click_yaml_cfg(
@@ -292,6 +297,18 @@ def write_tasks_to_geojson(
         "processing the water quality variables."
     ),
 )
+@click.option(
+    "--place-name",
+    type=str,
+    help="Optional name of a test area to generate tasks for. "
+    "To view the names of these predefined test areas, run the command `wq-list-test-areas`.",
+)
+@click.option(
+    "--tiles",
+    help="Optional list of comma separated tiles in the format "
+    "x{x:02d}/y{y:02d} to generate tasks for. "
+    "For example `x200/y034,x178/y095,x199/y100`",
+)
 @click.argument(
     "temporal-range",
     type=str,
@@ -303,6 +320,8 @@ def cli(
     analysis_config: dict,
     overwrite: bool,
     output_directory: str,
+    place_name: str,
+    tiles: str,
     temporal_range: str,
     frequency: str,
 ):
@@ -332,6 +351,38 @@ def cli(
         )
         log.error(e)
         raise e
+
+    # Get the geometry of the area of interest to
+    # search datasets for.
+    if tiles and place_name:
+        raise ValueError("Use either --tiles or --place-name, not both.")
+    else:
+        if place_name:
+            places_fp = files("water_quality.data").joinpath("places.parquet")
+            places_gdf = gpd.read_parquet(places_fp)
+            place_name_list = places_gdf["name"].to_list()
+
+            if place_name not in place_name_list:
+                raise ValueError(
+                    f"'{place_name}' not found in test areas file; expected names include {', '.join(place_name_list)}"
+                )
+            else:
+                place = places_gdf[places_gdf["name"].isin([place_name])]
+                aoi_geom = Geometry(geom=place.iloc[0].geometry, crs=place.crs)
+                aoi_tiles = list(get_aoi_tiles(aoi_geom))
+                tile_id_filter = [i[0] for i in aoi_tiles]
+        else:
+            if tiles:
+                tile_id_filter = [
+                    parse_region_code(i.strip()) for i in tiles.split(",")
+                ]
+            else:
+                tile_id_filter = None
+
+            africa_extent = gpd.read_file(AFRICA_EXTENT_URL)
+            aoi_geom = Geometry(
+                geom=africa_extent.iloc[0].geometry, crs=africa_extent.crs
+            )
 
     analysis_config = check_config(analysis_config)
     product_name = analysis_config["product_name"]
@@ -387,12 +438,8 @@ def cli(
     # ----- Find datasets for each instrument ----- #
 
     grid_spec = get_waterbodies_grid(resolution)
-    africa_extent = gpd.read_file(AFRICA_EXTENT_URL)
-    africa_extent_geom = Geometry(
-        geom=africa_extent.iloc[0].geometry, crs=africa_extent.crs
-    )
-    africa_geobox = GeoBox.from_geopolygon(
-        africa_extent_geom, resolution=grid_spec.resolution, crs=grid_spec.crs
+    aoi_geobox = GeoBox.from_geopolygon(
+        aoi_geom, resolution=grid_spec.resolution, crs=grid_spec.crs
     )
 
     # zstandard compression dictionary
@@ -418,7 +465,7 @@ def cli(
                 time_range = (temporal_range.start, temporal_range.end)
 
             dc_query = dict(
-                product=input_products, time=time_range, like=africa_geobox
+                product=input_products, time=time_range, like=aoi_geobox
             )
             datasets = ordered_dss(
                 dc,
@@ -469,8 +516,12 @@ def cli(
     rr = ds_stream_test_func(dss)
     log.info(rr.text)
 
-    # TODO: Add filtering by tile id
-    # prune out tiles that were not requested
+    if tile_id_filter is not None:
+        cells = {
+            tidx: cell
+            for tidx, cell in cells.items()
+            if tidx in tile_id_filter
+        }
 
     log.info(f"Total of {len(cells):,d} spatial tiles")
 

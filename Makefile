@@ -103,6 +103,9 @@ install-pkg: ## Editable install of package for development
 lint-src:
 	ruff check --select I --fix src/ tests/             
 	ruff format --verbose src/ tests/
+
+run-precommit:
+	pre-commit run --all-files
 	
 start-local-jupyter:
 	cp jupyter_lab_config.py ${CONDA_PREFIX}/etc/jupyter/jupyter_lab_config.py

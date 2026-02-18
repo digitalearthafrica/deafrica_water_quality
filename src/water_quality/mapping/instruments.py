@@ -350,7 +350,7 @@ def check_instrument_dates(
                     raise ValueError(error)
                 else:
                     valid_instruments_to_use[instrument_name] = {"use": False}
-                    log.error(error, "\nInstrument use set to False")
+                    log.error(f"{error} \nInstrument use set to False")
             else:
                 instrument_data_start_date = validate_start_date(
                     str(min(instruments_data_date_range))
@@ -378,7 +378,7 @@ def check_instrument_dates(
                         valid_instruments_to_use[instrument_name] = {
                             "use": False
                         }
-                        log.error(error, "\nInstrument use set to False")
+                        log.error(f"{error} \nInstrument use set to False")
         else:
             valid_instruments_to_use[instrument_name] = usage
     return valid_instruments_to_use

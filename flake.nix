@@ -27,7 +27,9 @@
           pkgs.markdownlint-cli
           pkgs.nixfmt-rfc-style
           pkgs.nodePackages.cspell
+          pkgs.yq
         ];
+
         shellHook = ''
           export TMPDIR=$HOME/.tmp
           export PROD_YAML=${./docker/environment_prod.yaml}

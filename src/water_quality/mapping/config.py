@@ -32,9 +32,9 @@ def check_config(analysis_config: dict) -> dict:
         "resolution",
         "instruments_to_use",
         "water_frequency_threshold_high",
-        "water_frequency_threshold_low",
-        "permanent_water_threshold",
-        "sigma_coefficient",
+        # "water_frequency_threshold_low",
+        # "permanent_water_threshold",
+        # "sigma_coefficient",
         "product",
     ]
 
@@ -54,9 +54,9 @@ def check_config(analysis_config: dict) -> dict:
     return dict(
         resolution=resolution_m,
         WFTH=analysis_config["water_frequency_threshold_high"],
-        WFTL=analysis_config["water_frequency_threshold_low"],
-        PWT=analysis_config["permanent_water_threshold"],
-        SC=analysis_config["sigma_coefficient"],
+        # WFTL=analysis_config["water_frequency_threshold_low"],
+        # PWT=analysis_config["permanent_water_threshold"],
+        # SC=analysis_config["sigma_coefficient"],
         product_name=product_info["name"],
         product_version=product_info["version"],
         instruments_to_use=analysis_config["instruments_to_use"],

@@ -21,8 +21,6 @@ dependencies:
   - jupyter-ai
   - langchain-google-genai
   # developer tools
-  - curl
   - make
   - wget
-  - unzip
   # Do not use pip packages in environment file
