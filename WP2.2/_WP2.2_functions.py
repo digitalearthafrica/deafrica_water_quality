@@ -247,7 +247,10 @@ def build_agm_dataset(parameters,instruments_to_use,verbose=True):
                 'wofs_ann':["wofs_ls_summary_annual"],
                 'wofs_all':["wofs_ls_summary_alltime"],
                }
-
+    if 'projection' in parameters.keys():
+        projection = parameters['projection']
+    else: projection = 'epsg:6933'
+        
     instruments,measurements,rename_dict = instruments_list(instruments_to_use) 
     datasets = {}
     dc = datacube.Datacube(app='build_agm_dataset')
@@ -257,10 +260,11 @@ def build_agm_dataset(parameters,instruments_to_use,verbose=True):
             datasets[instrument] = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=projection,
                                  resolution=parameters['grid_resolution'],
                                  align=(0,0),
-                                 resampling=parameters['resampling_option'],)
+                                 resampling=parameters['resampling_option'],
+                                 )
     
     #added a CRS since temperature data crashes without it
 
@@ -297,7 +301,11 @@ def build_dataset (spacetime_domain,
                    grid_resolution,
                    resampling_option,
                    rename_dict,
+                   projection='epsg:6933',
                    verbose=True) :
+
+    dc = datacube.Datacube(app='WP22_C_calibration_dataset')
+
     data_list = {}
     if instruments_to_use['oli']['use']:
         if verbose : print('building the oli dataset...')
@@ -308,7 +316,7 @@ def build_dataset (spacetime_domain,
         ds_oli = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=projection,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -333,7 +341,7 @@ def build_dataset (spacetime_domain,
         ds_msi = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=projection,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -356,7 +364,7 @@ def build_dataset (spacetime_domain,
         ds_tm = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=projection,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
