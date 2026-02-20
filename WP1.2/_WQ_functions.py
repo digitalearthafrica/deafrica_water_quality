@@ -1872,7 +1872,7 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
 
     #establish a reasonable grid resolution between min and max based on the AOI
     cell_min = 10
-    cell_max = 500
+    cell_max = 1000
     x0 = AOI["x"][0]        
     x1 = AOI["x"][1]
     y0 = AOI["y"][0]
