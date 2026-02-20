@@ -146,13 +146,15 @@ def build_wq_agm_dataset(spacetime_domain,
     for instrument in list(instruments_to_use.keys()):
         if instruments_to_use[instrument]['use'] :
             if verbose : print('loading data for ',instrument,'...')
+            if "wofs" in instrument: resampling_choice = "nearest"
+            else: resampling_choice = resampling_option
             datasets[instrument] = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
                                  output_crs='epsg:6933',
                                  resolution=grid_resolution,
-                                 align=(0,0),
-                                 resampling=resampling_option,)
+                                 #align=(0,0),
+                                 resampling=resampling_choice,)
     
     #added a CRS since temperature data crashes without it
 
