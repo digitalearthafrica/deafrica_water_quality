@@ -421,7 +421,7 @@ def calc_scale_and_offset(ds,verbose=False):
     #     this operates on statistical summaries, not spatial datasets. 
     # --- any variables to not include? I don't think this is needed ...
     refalgs = {}
-    refalgs['chla'] = 'chla_modis2b_msi'
+    refalgs['chla'] = 'chla_meris2b_msi'    #the oveall distribution of this variable has the median closest to the expected value of around 21. 
     refalgs['tss' ] = 'tsm_lym_oli'
     reftime    =  ds.time[0:24]   # the interval from which to gather the reference distributions
     targettime =  ds.time[0:24]   # the interval from which to gather the target distributions
@@ -513,7 +513,9 @@ def save_results(wq_results ,
                  filename ,
                  directory='/home/jovyan/deafrica_water_quality/wq_results/'):
     # ---- write to a file --- 
-    wq_results.to_netcdf(directory+filename)
+    # ---- Replacing this line to avoid crashing due to problems with teh time index... wq_results.to_netcdf(directory+filename)
+    wq_results.drop_attrs().to_netcdf(directory+filename)
+ 
     return()
 
 
