@@ -799,6 +799,6 @@ def WQ_vars(
         )
         return ds, all_wq_vars_df
     else:
-        ds = xr.merge([chla_ds, tsm_ds])
+        ds = xr.merge([chla_ds, tsm_ds]).where(water_mask == 1)
         log.info("Returning all water quality variables without stacking.")
         return ds, all_wq_vars_df
