@@ -178,7 +178,7 @@ def place_to_parquet():
             "desc": "Lake Victoria cloud affected",
         },
         "Lake_vic_turbid": {
-            "run": True,
+            "run": False,
             "xyt": {
                 "x": (34.60, 34.70),
                 "y": (-0.25, -0.20),
@@ -232,7 +232,7 @@ def place_to_parquet():
             "desc": "",
         },
         "SA_dam": {
-            "run": True,
+            "run": False,
             "xyt": {
                 "x": (19.35, 19.47),
                 "y": (-33.800, -33.650),
@@ -457,7 +457,7 @@ def place_to_parquet():
             "desc": "Mombasa",
         },
         "Mauritania_2": {
-            "run": True,
+            "run": False,
             "xyt": {
                 "x": (-15.63, -15.54),
                 "y": (16.605, 16.69),
@@ -466,7 +466,7 @@ def place_to_parquet():
             "desc": "Mauritania Wetland",
         },
         "Mauritania_1": {
-            "run": True,
+            "run": False,
             "xyt": {
                 "x": (-16.37, -16.32),
                 "y": (16.41, 16.45),
@@ -644,6 +644,123 @@ def place_to_parquet():
                 "time": (year1, year2),
             },
             "desc": "Lake Bogoria -- Tanzania",
+        },
+        "HC_1": {
+            "run": False,
+            "xyt": {
+                "x": (30.50, 30.70),
+                "y": (-8.00, -7.8),
+                "time": (year1, year2),
+            },
+            "desc": "Lake Tanganyika -- Tanzania, low turbidity",
+        },
+        "HC_2": {
+            "run": False,
+            "xyt": {
+                "x": (32.00, 32.20),
+                "y": (-8.00, -7.80),
+                "time": (year1, year2),
+            },
+            "desc": "Lake Rukwa -- Tanzania, very high turbidity",
+        },
+        "HC_3": {
+            "run": False,
+            "xyt": {
+                "x": (32.61, 33.52),
+                "y": (-1.469, -1.00),
+                "time": (year1, year2),
+            },
+            "desc": "lake Victoria lake stations -- TZA 32,37,38",
+        },
+        "HC_4": {
+            "run": False,
+            "xyt": {
+                "x": (32.85, 32.87),
+                "y": (-2.61, -2.57),
+                "time": (year1, year2),
+            },
+            "desc": "lake Victoria lake stations -- TZA 15 -2.5908	32.86835",
+        },
+        "HC_5": {
+            "run": False,
+            "xyt": {
+                "x": (-6.7502, -6.7473),
+                "y": (33.9308, 33.9347),
+                "time": (year1, year2),
+            },
+            "desc": "Morocco near Rabbat -- MAR 00002  -6.75 33.93333 ",
+        },
+        "HC_6": {
+            "run": False,
+            "xyt": {
+                "x": (-7.6360, -7.6308),
+                "y": (32.4727, 33.4758),
+                "time": (year1, year2),
+            },
+            "desc": "Morocco -- MAR 00003  -6.75 32.93333 ",
+        },
+        "Bizerte_Lake": {
+            "run": True,
+            "xyt": {
+                "x": (9.7790, 9.9460),
+                "y": (37.128, 37.2460),
+                "time": (year1, year2),
+            },
+            "desc": "Tunisia",
+        },
+        "Nickel_Lake": {
+            "run": True,
+            "xyt": {
+                "x": (9.56, 9.76),
+                "y": (37.10, 37.21),
+                "time": (year1, year2),
+            },
+            "desc": "Tunisia",
+        },
+        "Lake_Aheme": {
+            "run": True,
+            "xyt": {
+                "x": (1.9090, 2.0090),
+                "y": (6.381, 6.6080),
+                "time": (year1, year2),
+            },
+            "desc": "Benin",
+        },
+        "Lake_Nokoue": {
+            "run": True,
+            "xyt": {
+                "x": (2.3360, 2.5720),
+                "y": (6.377, 6.5240),
+                "time": (year1, year2),
+            },
+            "desc": "Benin, coastal lake",
+        },
+        "Lake_Tanganyika": {
+            "run": True,
+            "xyt": {
+                "x": (30.3440, 31.3050),
+                "y": (-8.860, -7.4700),
+                "time": (year1, year2),
+            },
+            "desc": "Tanzania / Malawi / DRC",
+        },
+        "Lake_Rukwa": {
+            "run": True,
+            "xyt": {
+                "x": (31.6500, 32.9800),
+                "y": (-8.500, -7.3600),
+                "time": (year1, year2),
+            },
+            "desc": "Tanzania",
+        },
+        "Bloemhof_dam": {
+            "run": False,
+            "xyt": {
+                "x": (25.6030, 25.6940),
+                "y": (-27.738, -27.648),
+                "time": (year1, year2),
+            },
+            "desc": "Irrigation dam South Africa",
         },
     }
 
