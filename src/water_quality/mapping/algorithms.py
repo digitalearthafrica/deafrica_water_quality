@@ -18,6 +18,20 @@ log = logging.getLogger(__name__)
 # =============================================================================
 # Water Quality Algorithms
 # =============================================================================
+def ChlA_2B(
+    dataset: xr.Dataset,
+    band_704: str,
+    band_665: str,
+) -> xr.DataArray:
+    # Gurlin et al., 2011
+    # as described in Desong Zhao et al, 2024
+    a2 = 40.985
+    a1 = -46.558
+    a0 = 19.246
+    R = dataset[band_704] / dataset[band_665]
+    return (a2 * R**2) + (a1 * R) + a0
+
+
 def ChlA_Toming(
     dataset: xr.Dataset, band5: str, band4: str, band6: str
 ) -> xr.DataArray:
@@ -276,6 +290,13 @@ def set_wq_algorithms(suffix=""):
             },
         }
     }
+    chla_gurlin2b = {  # used in global study by Zhao, looks promising on hartbeespoort dam
+        "msi" + s: {
+            "func": ChlA_2B,
+            "wq_varname": "chla_gurlin2b_msi",
+            "args": {"band_704": "msi05" + s, "band_665": "msi04" + s},
+        }
+    }
     chla_3bda = {
         "msi" + s: {
             "func": ChlA_3BDA,
@@ -494,6 +515,7 @@ def set_wq_algorithms(suffix=""):
     algorithms_chla = {
         "ndci_nir_r": ndci_nir_r,
         "chla_toming": chla_toming,
+        "chla_gurlin2b": chla_gurlin2b,
         "chla_3bda": chla_3bda,
         "chla_tebbs": chla_tebbs,
         "chla_meris2b": chla_meris2b,
