@@ -247,7 +247,10 @@ def build_agm_dataset(parameters,instruments_to_use,verbose=True):
                 'wofs_ann':["wofs_ls_summary_annual"],
                 'wofs_all':["wofs_ls_summary_alltime"],
                }
-
+    if 'projection' in parameters.keys():
+        projection = parameters['projection']
+    else: projection = 'epsg:6933'
+        
     instruments,measurements,rename_dict = instruments_list(instruments_to_use) 
     datasets = {}
     dc = datacube.Datacube(app='build_agm_dataset')
@@ -257,10 +260,11 @@ def build_agm_dataset(parameters,instruments_to_use,verbose=True):
             datasets[instrument] = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=projection,
                                  resolution=parameters['grid_resolution'],
                                  align=(0,0),
-                                 resampling=parameters['resampling_option'],)
+                                 resampling=parameters['resampling_option'],
+                                 )
     
     #added a CRS since temperature data crashes without it
 
@@ -297,7 +301,11 @@ def build_dataset (spacetime_domain,
                    grid_resolution,
                    resampling_option,
                    rename_dict,
+                   projection='epsg:6933',
                    verbose=True) :
+
+    dc = datacube.Datacube(app='WP22_C_calibration_dataset')
+
     data_list = {}
     if instruments_to_use['oli']['use']:
         if verbose : print('building the oli dataset...')
@@ -308,7 +316,7 @@ def build_dataset (spacetime_domain,
         ds_oli = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=projection,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -333,7 +341,7 @@ def build_dataset (spacetime_domain,
         ds_msi = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=projection,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -356,7 +364,7 @@ def build_dataset (spacetime_domain,
         ds_tm = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=projection,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -413,7 +421,7 @@ def calc_scale_and_offset(ds,verbose=False):
     #     this operates on statistical summaries, not spatial datasets. 
     # --- any variables to not include? I don't think this is needed ...
     refalgs = {}
-    refalgs['chla'] = 'chla_modis2b_msi'
+    refalgs['chla'] = 'chla_meris2b_msi'    #the oveall distribution of this variable has the median closest to the expected value of around 21. 
     refalgs['tss' ] = 'tsm_lym_oli'
     reftime    =  ds.time[0:24]   # the interval from which to gather the reference distributions
     targettime =  ds.time[0:24]   # the interval from which to gather the target distributions
@@ -505,7 +513,9 @@ def save_results(wq_results ,
                  filename ,
                  directory='/home/jovyan/deafrica_water_quality/wq_results/'):
     # ---- write to a file --- 
-    wq_results.to_netcdf(directory+filename)
+    # ---- Replacing this line to avoid crashing due to problems with teh time index... wq_results.to_netcdf(directory+filename)
+    wq_results.drop_attrs().to_netcdf(directory+filename)
+ 
     return()
 
 

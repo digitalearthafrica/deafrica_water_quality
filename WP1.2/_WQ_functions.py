@@ -694,6 +694,9 @@ def set_wq_algorithms(suffix=''):
     chla_toming  = { #looks more like a tss indicator!
                     "msi"+s     : {'func': ChlA_Toming, "wq_varname" : 'chla_toming_msi' , 'args' : {"band5" : 'msi05'+s , "band4":'msi04'+s , 'band6' : 'msi06'+s }}
                     }
+    chla_gurlin2b = { #used in global study by Zhao, looks promising on hartbeespoort dam
+                    "msi"+s     : {'func': ChlA_2B,    "wq_varname" : 'chla_gurlin2b_msi' , 'args' : {"band_704" : 'msi05'+s , "band_665":'msi04'+s}}
+                    }
     chla_3bda    = { 
                     "msi"+s     : {'func': ChlA_3BDA, "wq_varname" : 'chla_3bda_msi' , 'args' : {"blue_band" : 'msi02'+s , "red_band":'msi04'+s , 'green_band' : 'msi03'+s }},
                     "oli"+s     : {'func': ChlA_3BDA, "wq_varname" : 'chla_3bda_oli' , 'args' : {"blue_band" : 'oli02'+s , "red_band":'oli04'+s , 'green_band' : 'oli03'+s }},
@@ -766,8 +769,9 @@ def set_wq_algorithms(suffix=''):
     # ---- algorithms are grouped into two over-arching dictionaries ---- 
     algorithms_chla = {"ndci_nir_r"   : ndci_nir_r, 
                        "chla_toming"  : chla_toming, 
-                       "chla_3bda"  : chla_3bda, 
-                       "chla_tebbs"  : chla_tebbs, 
+                       "chla_gurlin2b": chla_gurlin2b, 
+                       "chla_3bda"    : chla_3bda, 
+                       "chla_tebbs"   : chla_tebbs, 
                        "chla_meris2b" : chla_meris2b, 
                        "chla_modis2b" : chla_modis2b}
     algorithms_tsm  = {"ndssi_rg"     : ndssi_rg  , 
@@ -782,6 +786,15 @@ def set_wq_algorithms(suffix=''):
     return(algorithms_chla,algorithms_tsm)
     
 
+# ------------------------------------------------------------------------
+def ChlA_2B(ds, band_704, band_665, verbose=False):
+    # Gurlin et al., 2011
+    # as described in Desong Zhao et al, 2024
+    a2 = 40.985
+    a1 = -46.558
+    a0 = 19.246
+    R  = (ds[band_704] / ds[band_665])
+    return  ( a2*R**2 + a1*R + a0 )
 
 # ------------------------------------------------------------------------------------------------------------------------------------
 def ChlA_Toming(dataset, band5, band4, band6, verbose=False):
@@ -920,12 +933,7 @@ def TSS_GreenRed (dataset, G, R, scale_factor=0.0001, verbose=False):
 # -------------------------------------------------------------------------------------
 def TSS_Zhang21(dataset, G, R, scale_factor=0.0001, with_model=True , verbose=False):
 
-# ---- Model of Zhang et al 2021 Remote sensing: Landsat Image-Based Retrieval and Analysis of Spatiotemporal 
-#      Variation of Total Suspended Solid Concentration in Jiaozhou Bay, China
-#
-#      Developed for Jiaozhou bay, a limited area with TSS values upto 30 (ie relatively low)
-#      Fundamentals are: (G + R) / (G/R)   
-#                        = G+R  * R/G  
+# ---- 
 #      Clearly this scales with the data values so dividing by 10000 is a start point for implementation.
 #      Sensible values are returned if the data are divided by 2pi
 #      Divide by zero is a problem.
@@ -1838,6 +1846,7 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
         'Lake_Nokoue'    :  {'run':True, "xyt" :{"x" : ( 2.3360,  2.5720), 	"y" : (6.377,	6.5240)    ,"time": (year1,year2)  },"desc": "Benin, coastal lake"},
         'Lake_Tanganyika':  {'run':True, "xyt" :{"x" : (30.3440, 31.3050), 	"y" : (-8.860,	-7.4700)   ,"time": (year1,year2)  },"desc": "Tanzania / Malawi / DRC"},
         'Lake_Rukwa'     :  {'run':True, "xyt" :{"x" : (31.6500, 32.9800), 	"y" : (-8.500,	-7.3600)   ,"time": (year1,year2)  },"desc": "Tanzania"},
+        'Bloemhof_dam'   :  {'run':False,"xyt" :{"x" : (25.6030, 25.6940), 	"y" : (-27.738,	-27.648)   ,"time": (year1,year2)  },"desc": "Irrigation dam South Africa"},
 
         }
 
@@ -1872,7 +1881,7 @@ def set_spacetime_domain(myplace=None,year1='2000',year2='2024',max_cells=100000
 
     #establish a reasonable grid resolution between min and max based on the AOI
     cell_min = 10
-    cell_max = 500
+    cell_max = 1000
     x0 = AOI["x"][0]        
     x1 = AOI["x"][1]
     y0 = AOI["y"][0]

@@ -293,11 +293,15 @@ def geomedian_hue(
         weighted_hue_sum.where(all_inst_count_total != 0)
         / all_inst_count_total
     )
-    # TODO: Are all hue bands to be trimmed to water mask and extreme
+
+    hue_ds = hue_ds.where(clear_water_mask == 1)
+
+    # This is the old method. Left it in here for reference.
+    # Are all hue bands to be trimmed to water mask and extreme
     # values removed or is it only for the "agm_hue" band?
-    hue_ds = xr.where((hue_ds > 25) & (hue_ds < 100), hue_ds, np.nan).where(
-        clear_water_mask == 1
-    )
+    # hue_ds = xr.where((hue_ds > 25) & (hue_ds < 100), hue_ds, np.nan).where(
+    #    clear_water_mask == 1
+    # )
 
     # This step is necessary to address
     # https://github.com/opendatacube/datacube-core/issues/2059
