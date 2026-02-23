@@ -288,7 +288,7 @@ def geomedian_hue(
     all_inst_hue = xr.concat(all_inst_hue_list, dim="instrument")
     all_inst_count = xr.concat(all_inst_count_list, dim="instrument")
     weighted_hue_sum = (all_inst_hue * all_inst_count).sum(dim="instrument")
-    all_inst_count_total = all_inst_count.sum(dim="instrument")
+    all_inst_count_total = (all_inst_hue.notnull() * all_inst_count).sum(dim="instrument")
     hue_ds["agm_hue"] = (
         weighted_hue_sum.where(all_inst_count_total != 0)
         / all_inst_count_total
