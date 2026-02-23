@@ -337,7 +337,7 @@ def cli(
             # Calculate TSM, TSI and Chla Water Quality variables
             wq_ds["tsm_chla_tsi"], wq_vars_df = WQ_vars(
                 annual_data=annual_data,
-                water_mask=wq_ds["water_mask"],
+                water_mask=wq_ds["clear_water"],
                 stack_wq_vars=True,
             )
             gc.collect()
