@@ -269,6 +269,16 @@ def cli(
             )
             gc.collect()
 
+            # Since the water mask defines the actual water pixels
+            # if the water mask is empty, skip the rest of the processing
+            # for this task.
+            if wq_ds["water_mask"].size == 0:
+                log.info(
+                    f"Water mask is empty for task {task_id_str}. Skipping "
+                    "processing of water quality variables for this task."
+                )
+                continue
+
             wq_ds["water_temp"] = water_temperature(
                 annual_data=annual_data,
                 water_mask=wq_ds["water_mask"],
