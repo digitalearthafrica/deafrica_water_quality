@@ -86,7 +86,9 @@ def geomedian_NDVI(
     all_inst_ndvi = xr.concat(all_inst_ndvi_list, dim="instrument")
     all_inst_count = xr.concat(all_inst_count_list, dim="instrument")
     weighted_ndvi_sum = (all_inst_ndvi * all_inst_count).sum(dim="instrument")
-    all_inst_count_total = all_inst_count.sum(dim="instrument")
+    all_inst_count_total = (all_inst_ndvi.notnull() * all_inst_count).sum(
+        dim="instrument"
+    )
     mean_ndvi = (
         weighted_ndvi_sum.where(all_inst_count_total != 0)
         / all_inst_count_total
