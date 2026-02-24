@@ -41,12 +41,31 @@ def water_temperature(
     inst = "tirs"
     if inst not in list(annual_data.keys()):
         error = (
-            f"No datasets found for instrument '{inst}'. ",
-            "Cannot generate water temperature annual composite. ",
-            "Returning empty DataArray.",
+            f"No datasets found for instrument '{inst}'. "
+            "Cannot generate water temperature annual composite. "
+            "Returning nan filled xarray.Dataset."
         )
         log.error(error)
-        return xr.DataArray(data=[], dims=["time"], coords={"time": []})
+
+        empty_da = xr.full_like(
+            water_mask, fill_value=np.nan, dtype=np.float64
+        )
+        attrs = {
+            "nodata": np.nan,
+            "scales": 1,
+            "offsets": 0,
+            "units": "Celsius",
+        }
+        empty_da.attrs.update(**attrs)
+
+        annual_ds_tirs = xr.Dataset(
+            {
+                "tirs_st_ann_med": empty_da,
+                "tirs_st_ann_min": empty_da,
+                "tirs_st_ann_max": empty_da,
+            }
+        )
+        return annual_ds_tirs
 
     inst_ds = annual_data[inst]
     native_tirs_geobox = inst_ds.odc.geobox
@@ -61,15 +80,26 @@ def water_temperature(
     )
     inst_ds["tirs_st"] = inst_ds["tirs_st"].where(valid_mask)
 
+    attrs = {
+        "nodata": np.nan,
+        "scales": 1,
+        "offsets": 0,
+        "units": "Celsius",
+    }
+
     annual_ds_tirs = xr.Dataset()
 
     group = inst_ds["tirs_st"].groupby("time.year")
     annual_ds_tirs["tirs_st_ann_med"] = group.median(dim="time")
+    annual_ds_tirs["tirs_st_ann_med"].attrs.update(**attrs)
 
     quantiles = [0.1, 0.9]
     quantile_results = group.quantile(quantiles, dim="time")
     annual_ds_tirs["tirs_st_ann_min"] = quantile_results.sel(quantile=0.1)
+    annual_ds_tirs["tirs_st_ann_min"].attrs.update(**attrs)
+
     annual_ds_tirs["tirs_st_ann_max"] = quantile_results.sel(quantile=0.9)
+    annual_ds_tirs["tirs_st_ann_max"].attrs.update(**attrs)
 
     # Replace the year coordinate with datetime64[ns] time coordinate
     annual_ds_tirs = annual_ds_tirs.rename({"year": "time"})
