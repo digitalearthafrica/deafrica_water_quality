@@ -347,7 +347,7 @@ def cli(
 
             # Run Optical Water Type classification
             wq_ds["owt"] = run_OWT(
-                instrument_data=annual_data,
+                annual_data=annual_data,
                 clear_water_mask=wq_ds["clear_water"],
                 compute=True,
             )
