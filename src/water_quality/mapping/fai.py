@@ -130,11 +130,25 @@ def geomedian_FAI(
     if set(geomedian_fai_instruments).isdisjoint(loaded_instruments) is True:
         error = (
             "The Geomedian FAI requires data for at least one instrument "
-            f"from: {', '.join(geomedian_fai_instruments)} .",
-            "Returning an empty Dataset.",
+            f"from: {', '.join(geomedian_fai_instruments)} . "
+            "Returning nan filled xarray.Dataset."
         )
+        empty_da = xr.full_like(
+            water_mask, fill_value=np.nan, dtype=np.float32
+        )
+        attrs = {
+            "nodata": np.nan,
+            "scales": 1,
+            "offsets": 0,
+        }
+        empty_da.attrs.update(**attrs)
+
+        empty_ds = xr.Dataset()
+        for inst in geomedian_fai_instruments:
+            empty_ds[f"{inst}_fai"] = empty_da
+
         log.error(error)
-        return xr.Dataset()
+        return empty_ds
 
     log.info("Calculating Geomedian FAI for available instruments ...")
     fai_ds = xr.Dataset()
