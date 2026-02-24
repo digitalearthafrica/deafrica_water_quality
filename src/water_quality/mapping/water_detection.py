@@ -41,7 +41,7 @@ def five_year_water_mask(
     if inst not in list(annual_data.keys()):
         error = (
             f"No datasets found for instrument '{inst}'. "
-            "Cannot generate water mask. Returning empty DataArray."
+            "Cannot generate water mask. Returning empty xarray.DataArray."
         )
         log.error(error)
         return xr.DataArray(data=[], dims=["time"], coords={"time": []})
@@ -126,19 +126,13 @@ def clear_water_mask(
     """
     log.info("Calculating clear water mask ...")
 
-    inst = "wofs_ann"
-    if inst not in list(annual_data.keys()):
-        error = (
-            f"No datasets found for instrument '{inst}'. ",
-            "Cannot generate clear water mask. Returning empty DataArray.",
-        )
-        log.error(error)
-        return xr.DataArray(data=[], dims=["time"], coords={"time": []})
+    inst_ds = annual_data["wofs_ann"]
 
-    inst_ds = annual_data[inst]
+    # .reindex is used here to accomodate cases where a 5 year water mask was
+    # generated but wofs_annual data for the year matching `agm_fai` is missing.
+    # This returns a nan filled dataset for such cases.
+    ds = inst_ds.reindex(time=agm_fai.time, fill_value=np.nan)
 
-    # Get the last year of data since wofs_ann data covers 5 years
-    ds = inst_ds.isel(time=-1).expand_dims(time=1)
     # Boolean instead of:
     # ds["wofs_ann_water"] = ds["wofs_ann_freq"].where(ds["wofs_ann_freq"] >
     # water_frequency_threshold, 0)
