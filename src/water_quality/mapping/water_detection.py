@@ -61,8 +61,6 @@ def five_year_water_mask(
         (wet_count_sum / clearcount_sum),
         np.nan,
     )
-    # TODO: Do we need to preserve land pixels as 0, together
-    # with nodata (np.nan)?
     water_mask_da = xr.where(frequency > 0.45, 1.0, np.nan).astype("float32")
     water_mask_da.name = "water_mask"
     water_mask_da.attrs = dict(

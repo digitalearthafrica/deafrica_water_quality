@@ -269,10 +269,10 @@ def cli(
             )
             gc.collect()
 
-            # Since the water mask defines the actual water pixels
-            # if the water mask is empty, skip the rest of the processing
+            # if the water mask is empty due to no wofs_ann datasets available
+            # or no water pixels found, skip the rest of the processing
             # for this task.
-            if wq_ds["water_mask"].size == 0:
+            if wq_ds["water_mask"].count().item() == 0:
                 log.info(
                     f"Water mask is empty for task {task_id_str}. Skipping "
                     "processing of water quality variables for this task."
