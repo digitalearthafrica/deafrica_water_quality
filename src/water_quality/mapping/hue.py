@@ -262,11 +262,26 @@ def geomedian_hue(
     if set(geomedian_hue_instruments).isdisjoint(loaded_instruments) is True:
         error = (
             "The Geomedian Hue requires data for at least one instrument "
-            f"from: {', '.join(geomedian_hue_instruments)} .",
-            "Returning an empty Dataset.",
+            f"from: {', '.join(geomedian_hue_instruments)} ."
+            "Returning nan filled xarray.Dataset."
         )
+        empty_da = xr.full_like(
+            clear_water_mask, fill_value=np.nan, dtype=np.float64
+        )
+        attrs = {
+            "nodata": np.nan,
+            "scales": 1,
+            "offsets": 0,
+        }
+        empty_da.attrs.update(**attrs)
+
+        empty_ds = xr.Dataset()
+        for inst in geomedian_hue_instruments:
+            empty_ds[f"{inst}_hue"] = empty_da
+        empty_ds["agm_hue"] = empty_da
+
         log.error(error)
-        return xr.Dataset()
+        return empty_ds
 
     log.info("Calculating Geomedian Hue for available instruments ...")
 
@@ -281,7 +296,7 @@ def geomedian_hue(
             hue_ds[f"{inst}_hue"] = hue_calculation(
                 inst_ds,
                 instrument=inst,
-            )
+            ).astype("float64")
             all_inst_hue_list.append(hue_ds[f"{inst}_hue"])
             all_inst_count_list.append(inst_ds[count_band])
 
