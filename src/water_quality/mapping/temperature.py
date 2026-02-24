@@ -41,9 +41,9 @@ def water_temperature(
     inst = "tirs"
     if inst not in list(annual_data.keys()):
         error = (
-            f"No datasets found for instrument '{inst}'. ",
-            "Cannot generate water temperature annual composite. ",
-            "Returning nan filled dataset.",
+            f"No datasets found for instrument '{inst}'. "
+            "Cannot generate water temperature annual composite. "
+            "Returning nan filled dataset."
         )
         log.error(error)
 

@@ -40,8 +40,8 @@ def five_year_water_mask(
     inst = "wofs_ann"
     if inst not in list(annual_data.keys()):
         error = (
-            f"No datasets found for instrument '{inst}'. ",
-            "Cannot generate water mask. Returning empty DataArray.",
+            f"No datasets found for instrument '{inst}'. "
+            "Cannot generate water mask. Returning empty DataArray."
         )
         log.error(error)
         return xr.DataArray(data=[], dims=["time"], coords={"time": []})
