@@ -43,24 +43,26 @@ def water_temperature(
         error = (
             f"No datasets found for instrument '{inst}'. "
             "Cannot generate water temperature annual composite. "
-            "Returning nan filled dataset."
+            "Returning nan filled xarray.Dataset."
         )
         log.error(error)
 
-        da = xr.full_like(water_mask, fill_value=np.nan, dtype=np.float64)
+        empty_da = xr.full_like(
+            water_mask, fill_value=np.nan, dtype=np.float64
+        )
         attrs = {
             "nodata": np.nan,
             "scales": 1,
             "offsets": 0,
             "units": "Celsius",
         }
-        da.attrs.update(**attrs)
+        empty_da.attrs.update(**attrs)
 
         annual_ds_tirs = xr.Dataset(
             {
-                "tirs_st_ann_med": da,
-                "tirs_st_ann_min": da,
-                "tirs_st_ann_max": da,
+                "tirs_st_ann_med": empty_da,
+                "tirs_st_ann_min": empty_da,
+                "tirs_st_ann_max": empty_da,
             }
         )
         return annual_ds_tirs

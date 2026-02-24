@@ -3,7 +3,6 @@ import json
 import os
 import sys
 import warnings
-from importlib.resources import files
 
 import click
 import numpy as np
@@ -16,6 +15,7 @@ from odc import dscache
 from odc.geo.xr import assign_crs, write_cog
 from odc.stats.model import DateTimeRange
 
+from water_quality.dates import year_to_dc_datetime
 from water_quality.io import (
     check_directory_exists,
     get_filesystem,
@@ -269,7 +269,7 @@ def cli(
             )
             gc.collect()
 
-            # if the water mask is empty due to no wofs_ann datasets available
+            # If the water mask is empty due to no wofs_ann datasets available
             # or no water pixels found, skip the rest of the processing
             # for this task.
             if wq_ds["water_mask"].count().item() == 0:
@@ -278,6 +278,15 @@ def cli(
                     "processing of water quality variables for this task."
                 )
                 continue
+
+            # Sometimes a tile will not have all 5 years of wofs_ann data, hence
+            # the time coordinate will not match the expected year for the geomedians.
+            wq_ds["water_mask"] = wq_ds["water_mask"].assign_coords(
+                time=np.array(
+                    [year_to_dc_datetime(temporal_range.start.year)],
+                    dtype="datetime64[ns]",
+                )
+            )
 
             wq_ds["water_temp"] = water_temperature(
                 annual_data=annual_data,
