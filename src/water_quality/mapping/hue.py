@@ -262,7 +262,7 @@ def geomedian_hue(
     if set(geomedian_hue_instruments).isdisjoint(loaded_instruments) is True:
         error = (
             "The Geomedian Hue requires data for at least one instrument "
-            f"from: {', '.join(geomedian_hue_instruments)} ."
+            f"from: {', '.join(geomedian_hue_instruments)} . "
             "Returning nan filled xarray.Dataset."
         )
         empty_da = xr.full_like(

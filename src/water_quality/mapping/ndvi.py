@@ -53,7 +53,7 @@ def geomedian_NDVI(
     if set(geomedian_ndvi_instruments).isdisjoint(loaded_instruments) is True:
         error = (
             "The Geomedian NDVI requires data for at least one instrument "
-            f"from: {', '.join(geomedian_ndvi_instruments)} ."
+            f"from: {', '.join(geomedian_ndvi_instruments)} . "
             "Returning nan filled xarray.Dataset."
         )
         empty_da = xr.full_like(
