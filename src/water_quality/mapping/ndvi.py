@@ -53,11 +53,26 @@ def geomedian_NDVI(
     if set(geomedian_ndvi_instruments).isdisjoint(loaded_instruments) is True:
         error = (
             "The Geomedian NDVI requires data for at least one instrument "
-            f"from: {', '.join(geomedian_ndvi_instruments)} .",
-            "Returning an empty Dataset.",
+            f"from: {', '.join(geomedian_ndvi_instruments)} ."
+            "Returning nan filled xarray.Dataset."
         )
+        empty_da = xr.full_like(
+            water_mask, fill_value=np.nan, dtype=np.float32
+        )
+        attrs = {
+            "nodata": np.nan,
+            "scales": 1,
+            "offsets": 0,
+        }
+        empty_da.attrs.update(**attrs)
+
+        empty_ds = xr.Dataset()
+        for inst in geomedian_ndvi_instruments:
+            empty_ds[f"{inst}_ndvi"] = empty_da
+        empty_ds["agm_ndvi"] = empty_da
+
         log.error(error)
-        return xr.Dataset()
+        return empty_ds
 
     log.info("Calculating Geomedian NDVI for available instruments ...")
     ndvi_ds = xr.Dataset()
