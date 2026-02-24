@@ -146,6 +146,7 @@ def geomedian_FAI(
         empty_ds = xr.Dataset()
         for inst in geomedian_fai_instruments:
             empty_ds[f"{inst}_fai"] = empty_da
+        empty_ds["agm_fai"] = empty_da
 
         log.error(error)
         return empty_ds
