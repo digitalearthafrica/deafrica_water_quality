@@ -156,7 +156,9 @@ def geomedian_FAI(
     all_inst_fai = xr.concat(all_inst_fai_list, dim="instrument")
     all_inst_count = xr.concat(all_inst_count_list, dim="instrument")
     weighted_fai_sum = (all_inst_fai * all_inst_count).sum(dim="instrument")
-    all_inst_count_total = all_inst_count.sum(dim="instrument")
+    all_inst_count_total = (all_inst_fai.notnull() * all_inst_count).sum(
+        dim="instrument"
+    )
     mean_fai = (
         weighted_fai_sum.where(all_inst_count_total != 0)
         / all_inst_count_total
