@@ -282,32 +282,35 @@ def run_OWT(
 
     owt_results = xr.Dataset()
     for instrument in geomedian_owt_instruments:
-        log.info(
-            f"Running OWT classification for instrument: {instrument} ..."
-        )
-        ds = annual_data[instrument]
+        if instrument in loaded_instruments:
+            log.info(
+                f"Running OWT classification for instrument: {instrument} ..."
+            )
+            ds = annual_data[instrument]
 
-        # Not necessary but keeping it here for now in case we
-        # want to add non-agm instruments in the future.
-        if instrument.endswith("_agm"):
-            inst = instrument.split("_")[0]
-            agm = True
-            varname = inst + "_agm_owt"
-        else:
-            inst = instrument
-            agm = False
-            varname = inst + "_owt"
+            # Not necessary but keeping it here for now in case we
+            # want to add non-agm instruments in the future.
+            if instrument.endswith("_agm"):
+                inst = instrument.split("_")[0]
+                agm = True
+                varname = inst + "_agm_owt"
+            else:
+                inst = instrument
+                agm = False
+                varname = inst + "_owt"
 
-        OWT_vectors = pd.read_csv(
-            files("water_quality.data").joinpath(f"{inst}_OWT_vectors.csv"),
-            index_col=0,
-        )
-        owt_results[varname] = OWT(
-            ds.where(clear_water_mask == 1),
-            inst,
-            OWT_vectors,
-            agm=agm,
-        )
+            OWT_vectors = pd.read_csv(
+                files("water_quality.data").joinpath(
+                    f"{inst}_OWT_vectors.csv"
+                ),
+                index_col=0,
+            )
+            owt_results[varname] = OWT(
+                ds.where(clear_water_mask == 1),
+                inst,
+                OWT_vectors,
+                agm=agm,
+            )
 
     agm_owt = None
     for inst in geomedian_owt_instruments:
