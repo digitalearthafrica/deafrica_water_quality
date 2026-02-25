@@ -18,6 +18,7 @@ from odc.stats.model import DateTimeRange
 from water_quality.dates import year_to_dc_datetime
 from water_quality.io import (
     check_directory_exists,
+    check_file_exists,
     get_filesystem,
     get_wq_cog_url,
     get_wq_csv_url,
@@ -238,7 +239,7 @@ def cli(
                     product_version=product_version,
                 )
             )
-            exists = check_directory_exists(expected_stac_path)
+            exists = check_file_exists(expected_stac_path)
             if exists and not overwrite:
                 log.info(
                     f"STAC file already exists for task {task_id_str} at "
