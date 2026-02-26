@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 
@@ -266,7 +268,7 @@ def geomedian_hue(
             "Returning nan filled xarray.Dataset."
         )
         empty_da = xr.full_like(
-            clear_water_mask, fill_value=np.nan, dtype=np.float64
+            clear_water_mask, fill_value=np.nan, dtype=np.float32
         )
         attrs = {
             "nodata": np.nan,
@@ -296,7 +298,7 @@ def geomedian_hue(
             hue_ds[f"{inst}_hue"] = hue_calculation(
                 inst_ds,
                 instrument=inst,
-            ).astype("float64")
+            )
             all_inst_hue_list.append(hue_ds[f"{inst}_hue"])
             all_inst_count_list.append(inst_ds[count_band])
 
@@ -332,4 +334,4 @@ def geomedian_hue(
         log.info("\tComputing Hue dataset ...")
         hue_ds = hue_ds.compute()
     log.info("Geomedian Hue calculation complete.")
-    return hue_ds
+    return enforce_float32(hue_ds)

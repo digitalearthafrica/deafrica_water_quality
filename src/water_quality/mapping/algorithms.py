@@ -12,6 +12,8 @@ import pandas as pd
 import scipy as sp
 import xarray as xr
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 
@@ -796,7 +798,7 @@ def WQ_vars(
 
         if tsm_ds.nbytes == 0:
             tsm_da = xr.full_like(
-                water_mask, fill_value=np.nan, dtype=np.float64
+                water_mask, fill_value=np.nan, dtype=np.float32
             )
             tsm_da.name = "tsm"
 
@@ -814,7 +816,7 @@ def WQ_vars(
 
         if chla_ds.nbytes == 0:
             chla_da = xr.full_like(
-                water_mask, fill_value=np.nan, dtype=np.float64
+                water_mask, fill_value=np.nan, dtype=np.float32
             )
             chla_da.name = "chla"
 
@@ -851,9 +853,9 @@ def WQ_vars(
         log.info(
             "Stacking TSM, Chla, and TSI water quality variables is complete."
         )
-        return ds, all_wq_vars_df
+        return enforce_float32(ds), all_wq_vars_df
     else:
         # TODO: Fix if chla_ds or tsm_ds is empty, the merge will fail.
         ds = xr.merge([chla_ds, tsm_ds]).where(water_mask == 1)
         log.info("Returning all water quality variables without stacking.")
-        return ds, all_wq_vars_df
+        return enforce_float32(ds), all_wq_vars_df

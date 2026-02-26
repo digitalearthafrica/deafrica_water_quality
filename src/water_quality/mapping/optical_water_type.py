@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 
@@ -345,4 +347,4 @@ def run_OWT(
         owt_results = owt_results.compute()
     log.info("OWT classification complete.")
 
-    return owt_results
+    return enforce_float32(owt_results)

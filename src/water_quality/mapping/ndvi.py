@@ -3,6 +3,8 @@ import logging
 import numpy as np
 import xarray as xr
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 NDVI_BANDS = {
@@ -135,4 +137,4 @@ def geomedian_NDVI(
         log.info("\tComputing NDVI dataset ...")
         ndvi_ds = ndvi_ds.compute()
     log.info("Geomedian NDVI calculation complete.")
-    return ndvi_ds
+    return enforce_float32(ndvi_ds)
