@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 
@@ -227,12 +229,12 @@ def OWT(
 
 
 def run_OWT(
-    instrument_data: dict[str, xr.Dataset],
+    annual_data: dict[str, xr.Dataset],
     clear_water_mask: xr.DataArray,
     compute: bool = False,
 ) -> xr.Dataset:
     """
-    A function to run the Optical Water Type (OWT) classification on a dataset.
+    Run the Optical Water Type (OWT) classification on a dataset.
 
     Parameters
     ----------
@@ -252,15 +254,44 @@ def run_OWT(
     xr.Dataset
         Dataset with OWT classification results.
     """
+    # Keep this order for consistent processing.
+    geomedian_owt_instruments = ["tm_agm", "oli_agm", "msi_agm"]
+    loaded_instruments = list(annual_data.keys())
+
+    if set(geomedian_owt_instruments).isdisjoint(loaded_instruments) is True:
+        error = (
+            "Optical Water Type (OWT) requires data for at least one instrument "
+            f"from: {', '.join(geomedian_owt_instruments)} . "
+            "Returning nan filled xarray.Dataset."
+        )
+        empty_da = xr.full_like(
+            clear_water_mask, fill_value=np.nan, dtype=np.float32
+        )
+        attrs = {
+            "nodata": np.nan,
+            "scales": 1,
+            "offsets": 0,
+        }
+        empty_da.attrs.update(**attrs)
+
+        empty_ds = xr.Dataset()
+        for inst in geomedian_owt_instruments:
+            empty_ds[f"{inst}_owt"] = empty_da
+        empty_ds["agm_owt"] = empty_da
+
+        log.error(error)
+        return empty_ds
+
     owt_results = xr.Dataset()
-    loaded_instruments = list(instrument_data.keys())
-    for instrument in loaded_instruments:
-        # Prevent attempts to run OWT on wofs_ann and tirs
-        if instrument in ["msi", "msi_agm", "tm", "tm_agm", "oli", "oli_agm"]:
+    for instrument in geomedian_owt_instruments:
+        if instrument in loaded_instruments:
             log.info(
                 f"Running OWT classification for instrument: {instrument} ..."
             )
-            ds = instrument_data[instrument]
+            ds = annual_data[instrument]
+
+            # Not necessary but keeping it here for now in case we
+            # want to add non-agm instruments in the future.
             if instrument.endswith("_agm"):
                 inst = instrument.split("_")[0]
                 agm = True
@@ -283,44 +314,37 @@ def run_OWT(
                 agm=agm,
             )
 
-    if list(owt_results.data_vars):
-        # Keep this order.
-        geomedian_instruments = ["tm_agm", "oli_agm", "msi_agm"]
-        agm_owt = None
-        for inst in geomedian_instruments:
-            if inst in loaded_instruments:
-                if agm_owt is None:
-                    agm_owt = owt_results[inst + "_owt"]
-                else:
-                    agm_owt = xr.where(
-                        ~np.isnan(owt_results[inst + "_owt"]),
-                        owt_results[inst + "_owt"],
-                        agm_owt,
-                    )
-
-        owt_results["agm_owt"] = agm_owt
-
-        # This step is necessary to address
-        # https://github.com/opendatacube/datacube-core/issues/2059
-        # ODC makes an assumption that all datasets contain all measurements
-        # listed in the product definition.
-        for inst in geomedian_instruments:
-            if inst not in loaded_instruments:
-                owt_results[f"{inst}_owt"] = xr.full_like(
-                    owt_results["agm_owt"], np.nan
+    agm_owt = None
+    for inst in geomedian_owt_instruments:
+        if inst in loaded_instruments:
+            if agm_owt is None:
+                agm_owt = owt_results[inst + "_owt"]
+            else:
+                agm_owt = xr.where(
+                    ~np.isnan(owt_results[inst + "_owt"]),
+                    owt_results[inst + "_owt"],
+                    agm_owt,
                 )
 
-        # TODO: Add agm_owt calculation for non-agm instruments?
-        # this will need to be in a separate function.
+    owt_results["agm_owt"] = agm_owt
 
-        # Mask again using clear water mask because OWT calculation
-        # may assign values to non-water pixels.
-        # TODO: Check why this is necessary.
-        owt_results = owt_results.where(clear_water_mask == 1)
+    # This step is necessary to address
+    # https://github.com/opendatacube/datacube-core/issues/2059
+    # ODC makes an assumption that all datasets contain all measurements
+    # listed in the product definition.
+    for inst in geomedian_owt_instruments:
+        if inst not in loaded_instruments:
+            owt_results[f"{inst}_owt"] = xr.full_like(
+                owt_results["agm_owt"], np.nan
+            )
 
-        if compute:
-            log.info("\tComputing OWT  ...")
-            owt_results = owt_results.compute()
-        log.info("OWT classification complete.")
+    # Mask again using clear water mask because OWT calculation
+    # may assign values to non-water pixels.
+    owt_results = owt_results.where(clear_water_mask == 1)
 
-    return owt_results
+    if compute:
+        log.info("\tComputing OWT  ...")
+        owt_results = owt_results.compute()
+    log.info("OWT classification complete.")
+
+    return enforce_float32(owt_results)

@@ -5,6 +5,7 @@ import xarray as xr
 from odc.geo.xr import xr_reproject
 
 from water_quality.dates import year_to_dc_datetime
+from water_quality.utils import enforce_float32
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ def water_temperature(
         log.error(error)
 
         empty_da = xr.full_like(
-            water_mask, fill_value=np.nan, dtype=np.float64
+            water_mask, fill_value=np.nan, dtype=np.float32
         )
         attrs = {
             "nodata": np.nan,
@@ -125,4 +126,4 @@ def water_temperature(
         annual_ds_tirs = annual_ds_tirs.compute()
 
     log.info("Processing complete for water temperature dataset.")
-    return annual_ds_tirs
+    return enforce_float32(annual_ds_tirs)

@@ -9,6 +9,8 @@ import numpy as np
 import xarray as xr
 from odc.geo.xr import assign_crs
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 
@@ -87,7 +89,7 @@ def five_year_water_mask(
         water_mask_da = water_mask_da.persist()
     del inst_ds, clearcount_sum, wet_count_sum, frequency
     log.info("Processing complete for water mask.")
-    return water_mask_da
+    return enforce_float32(water_mask_da)
 
 
 def clear_water_mask(
@@ -141,7 +143,7 @@ def clear_water_mask(
     # nodata (np.nan)?
     clear_water_mask = xr.where(
         np.isnan(agm_fai) & (water_mask == 1) & wofs_ann_water, 1.0, np.nan
-    ).astype("float32")
+    )
     clear_water_mask.name = "clear_water"
     clear_water_mask.attrs = dict(
         nodata=np.nan,
@@ -153,7 +155,7 @@ def clear_water_mask(
         clear_water_mask = clear_water_mask.compute()
     del inst_ds, ds, wofs_ann_water
     log.info("Processing complete for clear water mask.")
-    return clear_water_mask
+    return enforce_float32(clear_water_mask)
 
 
 def water_analysis(

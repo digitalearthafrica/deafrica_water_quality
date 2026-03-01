@@ -12,6 +12,8 @@ import pandas as pd
 import scipy as sp
 import xarray as xr
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 
@@ -793,34 +795,67 @@ def WQ_vars(
 
     if stack_wq_vars:
         log.info("Stacking water quality variables ...")
-        tsm_da = tsm_ds.to_stacked_array(
-            new_dim="tsm_measures",
-            sample_dims=list(tsm_ds.dims),
-            variable_dim="tsm_wq_vars",
-            name="tsm",
-        )
-        tsm_da.attrs = {}
 
-        chla_da = chla_ds.to_stacked_array(
-            new_dim="chla_measures",
-            sample_dims=list(chla_ds.dims),
-            variable_dim="chla_wq_vars",
-            name="chla",
-        )
-        chla_da.attrs = {}
-        log.info("Get median of tss and chla measurements for water pixels")
-        # Since median is a non local operation, a compute is triggered here
-        # which takes approximately 30 minutes for a single tile.
-        tsm_da = tsm_da.median(dim="tsm_measures").where(water_mask == 1)
-        chla_da = chla_da.median(dim="chla_measures").where(water_mask == 1)
-        tsi_da = compute_trophic_state_index(chla_da)
+        if tsm_ds.nbytes == 0:
+            tsm_da = xr.full_like(
+                water_mask, fill_value=np.nan, dtype=np.float32
+            )
+            tsm_da.name = "tsm"
+
+        else:
+            tsm_da = tsm_ds.to_stacked_array(
+                new_dim="tsm_measures",
+                sample_dims=list(tsm_ds.dims),
+                variable_dim="tsm_wq_vars",
+                name="tsm",
+            )
+            log.info("Get median of tss measurements for water pixels")
+            # Since median is a non local operation, a compute is triggered here
+            # which takes approximately 30 minutes for a single tile.
+            tsm_da = tsm_da.median(dim="tsm_measures").where(water_mask == 1)
+
+        if chla_ds.nbytes == 0:
+            chla_da = xr.full_like(
+                water_mask, fill_value=np.nan, dtype=np.float32
+            )
+            chla_da.name = "chla"
+
+            tsi_da = chla_da
+            tsi_da.name = "tsi"
+        else:
+            chla_da = chla_ds.to_stacked_array(
+                new_dim="chla_measures",
+                sample_dims=list(chla_ds.dims),
+                variable_dim="chla_wq_vars",
+                name="chla",
+            )
+            log.info("Get median of chla measurements for water pixels")
+            # Since median is a non local operation, a compute is triggered here
+            # which takes approximately 30 minutes for a single tile.
+            chla_da = chla_da.median(dim="chla_measures").where(
+                water_mask == 1
+            )
+            tsi_da = compute_trophic_state_index(chla_da)
+
+        # Since harmonization and normalization are applied to each variable separately
+        # scale and offset are set to 1 and 0 respectively for the stacked variables,
+        # and nodata is set to nan.
+        attrs = {
+            "nodata": np.nan,
+            "scales": 1,
+            "offsets": 0,
+        }
+        tsm_da.attrs = attrs
+        chla_da.attrs = attrs
+        tsi_da.attrs = attrs
 
         ds = xr.Dataset({"tsm": tsm_da, "chla": chla_da, "tsi": tsi_da})
         log.info(
             "Stacking TSM, Chla, and TSI water quality variables is complete."
         )
-        return ds, all_wq_vars_df
+        return enforce_float32(ds), all_wq_vars_df
     else:
+        # TODO: Fix if chla_ds or tsm_ds is empty, the merge will fail.
         ds = xr.merge([chla_ds, tsm_ds]).where(water_mask == 1)
         log.info("Returning all water quality variables without stacking.")
-        return ds, all_wq_vars_df
+        return enforce_float32(ds), all_wq_vars_df

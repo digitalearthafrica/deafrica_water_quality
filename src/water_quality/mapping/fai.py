@@ -3,6 +3,8 @@ import logging
 import numpy as np
 import xarray as xr
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 # Central wavelengths (nm) for the red, NIR, and SWIR bands
@@ -146,6 +148,7 @@ def geomedian_FAI(
         empty_ds = xr.Dataset()
         for inst in geomedian_fai_instruments:
             empty_ds[f"{inst}_fai"] = empty_da
+        empty_ds["agm_fai"] = empty_da
 
         log.error(error)
         return empty_ds
@@ -203,4 +206,4 @@ def geomedian_FAI(
         log.info("\tComputing FAI dataset ...")
         fai_ds = fai_ds.compute()
     log.info("Geomedian FAI calculation complete.")
-    return fai_ds
+    return enforce_float32(fai_ds)

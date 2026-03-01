@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from water_quality.utils import enforce_float32
+
 log = logging.getLogger(__name__)
 
 
@@ -262,11 +264,26 @@ def geomedian_hue(
     if set(geomedian_hue_instruments).isdisjoint(loaded_instruments) is True:
         error = (
             "The Geomedian Hue requires data for at least one instrument "
-            f"from: {', '.join(geomedian_hue_instruments)} .",
-            "Returning an empty Dataset.",
+            f"from: {', '.join(geomedian_hue_instruments)} . "
+            "Returning nan filled xarray.Dataset."
         )
+        empty_da = xr.full_like(
+            clear_water_mask, fill_value=np.nan, dtype=np.float32
+        )
+        attrs = {
+            "nodata": np.nan,
+            "scales": 1,
+            "offsets": 0,
+        }
+        empty_da.attrs.update(**attrs)
+
+        empty_ds = xr.Dataset()
+        for inst in geomedian_hue_instruments:
+            empty_ds[f"{inst}_hue"] = empty_da
+        empty_ds["agm_hue"] = empty_da
+
         log.error(error)
-        return xr.Dataset()
+        return empty_ds
 
     log.info("Calculating Geomedian Hue for available instruments ...")
 
@@ -317,4 +334,4 @@ def geomedian_hue(
         log.info("\tComputing Hue dataset ...")
         hue_ds = hue_ds.compute()
     log.info("Geomedian Hue calculation complete.")
-    return hue_ds
+    return enforce_float32(hue_ds)
