@@ -1,7 +1,7 @@
 name: Build and Push Image
 
 env:
-  IMAGE_NAME: deafrica-water-quality
+  IMAGE_NAME: ${{ vars.DOCKER_ORG_NAME || 'digitalearthafrica' }}/deafrica-water-quality
 
 on:
   workflow_dispatch:
@@ -32,7 +32,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DEAFRICA_DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=sha,format=short
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/develop' }}
