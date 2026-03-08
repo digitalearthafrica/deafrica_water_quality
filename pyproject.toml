@@ -35,7 +35,6 @@ dependencies = [
     "odc-cloud[ASYNC]",
     "odc-dscache",
     "odc-geo",
-    "odc-loader @ git+https://github.com/opendatacube/odc-loader.git@7cf11257766783d63a10a524f5c1a59e70960f22",
     "odc-stats>=1.9.6",
     "pandas",
     "PyYAML",
@@ -48,13 +47,14 @@ dependencies = [
     "toolz",
     "tqdm",
     "xarray[accel,io]",
+    "waterbodies @ git+https://github.com/vikineema/waterbodies.git@move-to-wq",
     "yarl"
 ]
 
 [project.optional-dependencies]
 dev = [
     "ruff",
-    "yamlint",
+    "yamllint",
  ]
 test = [
     "pytest",
@@ -72,6 +72,7 @@ wq-generate-tiles = "water_quality.cli.generate_tiles:cli"
 wq-generate-tasks = "water_quality.cli.generate_tasks:cli"
 wq-process-annual-wq-variables = "water_quality.cli.process_annual_wq_variables:cli"
 wq-prepare-metadata = "water_quality.cli.metadata_generator:cli"
+wq-summaries-save-tasks = "water_quality.cli.summaries.save_tasks:cli"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

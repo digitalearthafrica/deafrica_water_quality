@@ -46,6 +46,7 @@ def water_temperature(
             "Cannot generate water temperature annual composite. "
             "Returning nan filled xarray.Dataset."
         )
+
         log.error(error)
 
         empty_da = xr.full_like(

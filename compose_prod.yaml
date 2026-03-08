@@ -1,8 +1,6 @@
 services:
   db:
     image: kartoza/postgis:latest
-    # volumes:
-      # - postgis-data:/var/lib/postgresql
     ports:
         - ${POSTGRES_PORT}:5432
     environment:
@@ -23,7 +21,7 @@ services:
   water-quality:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
       args:
         BUILD_ENV: "prod"
     environment:
