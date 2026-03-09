@@ -19,7 +19,7 @@ from water_quality.logs import setup_logging
     no_args_is_help=True,
 )
 @click.argument(
-    "historical-rasters-dir",
+    "historical-extent-rasters-dir",
     type=str,
 )
 @click.option(
