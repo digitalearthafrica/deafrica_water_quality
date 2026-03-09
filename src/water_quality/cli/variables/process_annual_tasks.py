@@ -63,7 +63,7 @@ def setup_dask_if_needed():
 
 
 @click.command(
-    name="process-annual-wq-variables",
+    name="process-annual-tasks",
     no_args_is_help=True,
 )
 @click.option(
