@@ -250,7 +250,7 @@ def instruments_list(instruments_to_use,verbose=False)  :
                         'count' : {'varname': ('msi_agm_count')  , 'parameters' : (True,)},
                             },
             'msi'      : {
-                        'B01'   : {'varname': ('msi01')      , 'parameters' : (False,' 442 bandwidth 20 nm, spatial 60 m, Coastal aerosol')},
+                        'B01'   : {'varname': ('msi01')      , 'parameters' : (True, ' 442 bandwidth 20 nm, spatial 60 m, Coastal aerosol')},
                         'B02'   : {'varname': ('msi02')      , 'parameters' : (True, ' 493 bandwidth 65 nm, spatial 10 m,')},
                         'B03'   : {'varname': ('msi03')      , 'parameters' : (True, ' 559 bandwidth 35 nm, spatial 10 m,')},
                         'B04'   : {'varname': ('msi04')      , 'parameters' : (True, ' 665 bandwidth 31 nm, spatial 10 m,')},
@@ -345,20 +345,20 @@ def check_instrument_dates(instruments_to_use,year1,year2,verbose=True):
     #---  cross-check against the years for which the analysis is going to be run.
     instrument_dates = {
         'oli_agm'  : [2013,2024],
-        'oli'      : [2013,2025],
+        'oli'      : [2013,2026],
         'msi_agm'  : [2017,2024],
-        'msi'      : [2017,2025],
+        'msi'      : [2017,2026],
         'wofs_ann' : [1990,2024],
         'wofs_all' : [1990,2024],
         'tm_agm'   : [1990,2012],
         'tm'       : [1990,2023],
-        'tirs'     : [2000,2025],
+        'tirs'     : [2000,2026],
         }
 
     for name in list(instruments_to_use.keys()):
         if verbose: print(name, instruments_to_use[name]['use'])
         if not (instrument_dates[name][1] >= int(year1) and instrument_dates[name][0] <= int(year2)):
-            if verbose: print('instrument ',name,' has date ranges ',instrument_dates[name][0],instrument_dates[name][1],' outside of ',year1,year2)
+            if verbose: print('Instrument ',name,' has date ranges ',instrument_dates[name][0],instrument_dates[name][1],' outside of ',year1,year2)
             instruments_to_use[name]['use'] = False
     return(instruments_to_use)
 
@@ -697,6 +697,15 @@ def set_wq_algorithms(suffix=''):
     chla_gurlin2b = { #used in global study by Zhao, looks promising on hartbeespoort dam
                     "msi"+s     : {'func': ChlA_2B,    "wq_varname" : 'chla_gurlin2b_msi' , 'args' : {"band_704" : 'msi05'+s , "band_665":'msi04'+s}}
                     }
+    chla_tc2     = { #used in global study by Zhao, 2024, semi-analytical algorithm, best practice?
+                    "msi"     : {'func': ChlA_tc2,    "wq_varname" : 'chla_tc2_msi' , 'args' : 
+                                   {"band_443" : 'msi01'+s , 
+                                    "band_560" : 'msi03'+s , 
+                                    "band_665" : 'msi04'+s , 
+                                    "band_704" : 'msi05'+s , 
+                                    "band_740" : 'msi06'+s}
+                                  }
+                    }
     chla_3bda    = { 
                     "msi"+s     : {'func': ChlA_3BDA, "wq_varname" : 'chla_3bda_msi' , 'args' : {"blue_band" : 'msi02'+s , "red_band":'msi04'+s , 'green_band' : 'msi03'+s }},
                     "oli"+s     : {'func': ChlA_3BDA, "wq_varname" : 'chla_3bda_oli' , 'args' : {"blue_band" : 'oli02'+s , "red_band":'oli04'+s , 'green_band' : 'oli03'+s }},
@@ -770,6 +779,7 @@ def set_wq_algorithms(suffix=''):
     algorithms_chla = {"ndci_nir_r"   : ndci_nir_r, 
                        "chla_toming"  : chla_toming, 
                        "chla_gurlin2b": chla_gurlin2b, 
+                       "chla_tc2"     : chla_tc2, 
                        "chla_3bda"    : chla_3bda, 
                        "chla_tebbs"   : chla_tebbs, 
                        "chla_meris2b" : chla_meris2b, 
@@ -785,7 +795,104 @@ def set_wq_algorithms(suffix=''):
                        "spm_qiu"      : spm_qiu    }
     return(algorithms_chla,algorithms_tsm)
     
+#-------------------------------------------------------------------------
+# a series of functions to implement the TC2 Chla algorithm for MSI data
+def below_water_reflectance(da) :    # (Lui et al 2020)
+    # rescale reflectance to a fraction first
+    return( (da * 0.0001) / (0.52 + 1.7 * da * 0.0001) )
 
+def mu(da) :     # (Lui et al 2020)
+    g0 = -0.089
+    g1 =  0.125
+    return(
+        ( g0 + pow((g0**2 + 4*g1*da),0.5)) / 2*g1
+    )
+
+def MCI(R665,R704,R740) : #(gower et al 2005 as in Zhao et al 2024)
+    k = (704 - 665)/(740-665)
+    return(R704 - R665 - (R740 - R665)*k)
+
+def backscatter_coeffs(L,L0_lambda,L0_part_backscatter,Exponent,clear_water_backscatter) :  # (Lui et al 2020)
+    return  (
+            L0_part_backscatter * pow(L0_lambda/L,Exponent) + clear_water_backscatter
+            )
+
+def non_water_abs(rs_data,
+                  backscatter_coefficient,
+                  clearwater_absorption_coefficient):  #(Lui et al 2020)
+    mL = mu(below_water_reflectance(rs_data))
+    return(
+        (1 - mL)*backscatter_coefficient / mL - clearwater_absorption_coefficient
+        )
+def chla_from_nonwater_absorption (anw665,anw560,anw704) :  #(lui et al 2020)
+    p_ = 0.17
+    aph665 = anw665 - p_ * anw560 - (1 - p_) * anw704
+    aChla  = 0.017
+    return(aph665 / aChla)
+    
+def ChlA_tc2 (ds,band_443,band_560,band_665,band_704,band_740,verbose=False) :
+    # parameters used in the analysis
+    p={}
+    p['443'] = {'bname': band_443, 'la' : 443, 'bw' : 0.00219, 'aw' : 0.00680, 'aph' : ''}
+    p['560'] = {'bname': band_560, 'la' : 560, 'bw' : 0.00081, 'aw' : 0.06215, 'aph' : 0.010}
+    p['665'] = {'bname': band_665,'la' : 665, 'bw' : 0.00039, 'aw' : 0.42850, 'aph' : 0.017}
+    p['704'] = {'bname': band_704,'la' : 704, 'bw' : 0.00031, 'aw' : 0.71502,}
+    p['740'] = {'bname': band_740,'la' : 740, 'bw' : 0.00025, 'aw' : 1.91400,}
+
+    # determine the MCI (gower et al 2005 which is used to choose lambda zero    
+    MCI_threshold = 0.0016
+    p['MCI'] =  MCI(
+        ds[p['665']['bname']]*0.0001,
+        ds[p['704']['bname']]*0.0001,
+        ds[p['740']['bname']]*0.0001,
+        )
+    # power-law exponenent for particulate backscatter (pixel-wise)
+    Y  = 2.0 * ( 1 - 1.2 * np.exp(-0.9 * \
+                  below_water_reflectance(ds[p['443']['bname']]) / 
+                  below_water_reflectance(ds[p['560']['bname']])
+                                 ))
+    
+    for option in [704,740]:  #deal with two possibilities regarding the MCI, one turbid water, the other non turbid
+        L0 = option
+        
+        L0m = mu(below_water_reflectance(ds[p[str(L0)]['bname']])
+        )
+        L0la = p[str(L0)]['la']
+        L0aw = p[str(L0)]['aw']
+        L0bw = p[str(L0)]['bw']
+        # estimate the backscatter from particulates at L0 (pixel-wise)
+        L0bp  = (L0m  * L0aw) / (1-L0m) - L0bw
+        # calculate backscatter coefficients for each band
+        for l in [560,665,704,740] :
+            p[str(l)]['backscatter'] = \
+                backscatter_coeffs(
+                    L = l,
+                    L0_lambda = L0la,
+                    L0_part_backscatter = L0bp,
+                    Exponent = Y,
+                    clear_water_backscatter = p[str(l)]['bw'])
+
+        # calculate the non-water absorption for each band
+        for l in [560,665,704]:
+            l = str(l)
+            p[l]['anw'] =  \
+                non_water_abs(
+                    rs_data                           = ds[p[l]['bname']],
+                    backscatter_coefficient           =    p[l]['backscatter'],
+                    clearwater_absorption_coefficient =    p[l]['aw'])
+
+        # retreive chla estimates 
+        p['chla'+str(option)] = chla_from_nonwater_absorption (
+                                anw665= p['665']['anw'],\
+                                anw560= p['560']['anw'],\
+                                anw704= p['704']['anw']    )
+
+    return(xr.where(p['MCI']<MCI_threshold,p['chla704'],p['chla740']))
+# ----------------------------------------------------------        
+   
+
+
+    
 # ------------------------------------------------------------------------
 def ChlA_2B(ds, band_704, band_665, verbose=False):
     # Gurlin et al., 2011
