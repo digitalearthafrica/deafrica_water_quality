@@ -66,13 +66,8 @@ Repository = "https://github.com/digitalearthafrica/deafrica_water_quality.git"
 "Bug Tracker" = "https://github.com/digitalearthafrica/deafrica_water_quality/issues"
 
 [project.scripts]
-wq-version = "water_quality.cli.get_version:cli"
-wq-list-test-areas = "water_quality.cli.list_test_areas:cli"
-wq-generate-tiles = "water_quality.cli.generate_tiles:cli"
-wq-generate-tasks = "water_quality.cli.generate_tasks:cli"
-wq-process-annual-wq-variables = "water_quality.cli.process_annual_wq_variables:cli"
-wq-prepare-metadata = "water_quality.cli.metadata_generator:cli"
-wq-summaries-save-tasks = "water_quality.cli.summaries.save_tasks:cli"
+wqms-variables = "water_quality.cli.main:wqms_variables"
+wqms-summaries = "water_quality.cli.main:wqms_summaries"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
