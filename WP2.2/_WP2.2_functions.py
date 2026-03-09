@@ -1,7 +1,7 @@
 # these functions developed specifically for WP2.2
-# trying to not overlap with _WQ_functions in WP1.2
-#from _WQ_functions import dummy_function
-# importing required module
+# ideally this will only add to WP1.2 and WP2.1 functions
+# duplicates with  WP1.2  should be remove
+
 import os
 import numpy  as np
 import xarray as xr
@@ -14,25 +14,11 @@ import datacube
 
 # appending a path
 sys.path.append('/home/jovyan/dev/deafrica_water_quality/WP1.2')
+sys.path.append('/home/jovyan/dev/deafrica_water_quality/WP2.1')
 from _WQ_functions import trophic_state
 from _WQ_functions import instruments_list  
 from _WQ_functions import *
-
-#from WQ_functions import NDVI
-#from _WQ_functions import FAI
-#from WQ_functions import NDVI
-
-
-
-# --- this cell is functions ----
-# --- calculate summary statistics 
-#for now I have kept these functions in a notebook for the markdown
-
-def wp22_dummy(s='nonesense'):
-    print('function wp22_dummy is now running -->'+s)
-    trophic_state()
-    #instruments_list()
-    return()
+from _WP21_functions import *
 
 
 # --------------------------------------------------------------------------------
@@ -87,8 +73,8 @@ def calc_agm_cumulative_distributions(ds,placename,varlist1=None,varlist2=None):
 # This ASSUMES that the dataset spans only a year or so. A single time is chosen.
 def determine_water_area (ds,ds_annual):
     year         = pd.DatetimeIndex(ds['time']).year[int(ds.time.size/2)]  # the year at the centre of the monitoring interval
-    water_5yr    = ds_annual.water_5yr     .sel(time=str(year)).squeeze()   
-    water_annual = ds_annual.wofs_ann_water.sel(time=str(year)).squeeze()   
+    water_5yr    = ds_annual.water_5yr     .sel(time=str(year),method='nearest').squeeze()   
+    water_annual = ds_annual.wofs_ann_water.sel(time=str(year),method='nearest').squeeze()   
     # a data array with xy shape
     water_pixel_count = water_5yr.count()
 
@@ -189,7 +175,7 @@ def add_vars_and_combine_datasets(data_list):
         # --- select the relevant dataset ---
         ds             = data_list[instrument]
         ds[instrument] = ('time'), np.ones(ds.time.sizes['time']).astype('bool')                    # --- a boolean variable with a value of 'True' ---
-        if not 'qa_score' in ds.data_vars:
+        if not 'qa_score' in ds.data_vars :
             ds['qa_score'] = ('time','y','x'), np.zeros([ds.sizes['time'],ds.sizes['y'],ds.sizes['x']]) # --- a "qa_score" variable and set to zero ----
 
         # --- attempt to set the value of the qa_score, based on the pixel quality data provided with the data.  
@@ -247,9 +233,9 @@ def build_agm_dataset(parameters,instruments_to_use,verbose=True):
                 'wofs_ann':["wofs_ls_summary_annual"],
                 'wofs_all':["wofs_ls_summary_alltime"],
                }
-    if 'projection' in parameters.keys():
-        projection = parameters['projection']
-    else: projection = 'epsg:6933'
+    if 'crs' in parameters.keys():
+        crs = parameters['crs']
+    else: crs = 'epsg:6933'
         
     instruments,measurements,rename_dict = instruments_list(instruments_to_use) 
     datasets = {}
@@ -260,7 +246,7 @@ def build_agm_dataset(parameters,instruments_to_use,verbose=True):
             datasets[instrument] = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs=projection,
+                                 output_crs=crs,
                                  resolution=parameters['grid_resolution'],
                                  align=(0,0),
                                  resampling=parameters['resampling_option'],
@@ -301,7 +287,7 @@ def build_dataset (spacetime_domain,
                    grid_resolution,
                    resampling_option,
                    rename_dict,
-                   projection='epsg:6933',
+                   crs='epsg:6933',
                    verbose=True) :
 
     dc = datacube.Datacube(app='WP22_C_calibration_dataset')
@@ -316,7 +302,7 @@ def build_dataset (spacetime_domain,
         ds_oli = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs=projection,
+                                 output_crs=crs,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -341,7 +327,7 @@ def build_dataset (spacetime_domain,
         ds_msi = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs=projection,
+                                 output_crs=crs,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -364,7 +350,7 @@ def build_dataset (spacetime_domain,
         ds_tm = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs=projection,
+                                 output_crs=crs,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -384,16 +370,15 @@ def build_dataset (spacetime_domain,
         if verbose : print('... done.')
 
     #yet to switch this on...
-    if instruments_to_use['tirs']['use'] and False:
-        test = True
+    if instruments_to_use['tirs']['use'] :
+        test = test
         if verbose : print('building the tirs dataset ...')
         instrument = 'tirs'
-        data_list.append(instrument)
         # --- load tirs data
-        ds_tm = dc.load(product=(products[instrument]),
+        ds_tirs = dc.load(product=(products[instrument]),
                                  **spacetime_domain,
                                  **{'measurements': measurements[instrument]},
-                                 output_crs='epsg:6933',
+                                 output_crs=crs,
                                  group_by ='solar_day',
                                  resolution=grid_resolution,
                                  align=(0,0),
@@ -402,11 +387,18 @@ def build_dataset (spacetime_domain,
         # --- re-name the variables for the sake of sanity --- 
         ds_tirs = rename_vars_robust(ds_tirs,rename_dict['tirs'])
 
-        # --- set zeros to nans and re-scale 
-        for var in ds_tirs.data_vars:
-            ds_tm[var] = xr.where(ds_tm[var]>0,ds_tm[var],np.nan)
-            if not var == 'tm_pq':
-                ds_tm[var] = ((ds_tm[var] * 0.0000275) - 0.2) * 10000
+        # adjust and qa the temperature 
+        ds_tirs['tirs_st']    = (ds_tirs.tirs_st * 0.00341802 + 149.0) - 273.15
+        ds_tirs['tirs_st_qa'] = ds_tirs['tirs_st_qa'] * 0.01    # -- uncertainty in kelvin 
+        ds_tirs['tirs_emis']  = ds_tirs['tirs_emis' ] * 0.0001  # -- emissivity fraction
+        ds_tirs['tirs_st']    = xr.where(ds_tirs['tirs_st'] > 0,
+                                xr.where(ds_tirs['tirs_st_qa'] < 5,
+                                     xr.where(ds_tirs['tirs_emis']> 0.95,
+                                              ds_tirs['tirs_st'],
+                                              np.nan),
+                                     np.nan),
+                                np.nan)
+
         data_list['tirs']=ds_tirs
         if verbose : print('... done.')
 
@@ -572,7 +564,7 @@ def set_clearwater(ds, fai_var, water_5yr_var, water_annual_var):
         return(ds)
     ds['clearwater']     = np.logical_and(np.isnan(ds[fai_var])  ,ds[water_5yr_var]  ==1)
     if water_annual_var != None:
-        ds['clearwater'] = np.logical_and(ds['clearwater'],ds[water_annual_var])
+        ds['clearwater'] = np.logical_and(ds['clearwater'],ds[water_annual_var]>0)
     return(ds)
 
 # ---------------------------------------------------------------------------------------------
@@ -663,9 +655,10 @@ def log_parameters(log,placename,parameters) :
     else : return(parameters , logfile)
 
 # ---------------------------------------------------------------------------------------------
-def check_instrument_dates(instruments_to_use,year1,year2,verbose=True):
+def check_instrument_dates_old(instruments_to_use,year1,year2,verbose=True):
     # --- this function changes the values in the dictionary. Those changes apply globally, it seems. 
     #---  cross-check against the years for which the analysis is going to be run.
+    print('this should not happen!')
     instrument_dates = {
         'oli_agm'  : [2013,2024],
         'oli'      : [2013,2025],
