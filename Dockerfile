@@ -31,7 +31,7 @@ RUN micromamba clean --all --index-cache --packages --tarballs \
     && micromamba run --name base pip cache purge \
     && micromamba env export --name base --explicit
 
-RUN wq-version 
+RUN  wqms-summaries --version
 
 FROM ubuntu:jammy
 
