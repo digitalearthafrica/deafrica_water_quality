@@ -20,6 +20,9 @@ from water_quality.cli.variables.metadata_generator import (
 from water_quality.cli.variables.process_annual_tasks import (
     cli as process_annual_tasks_cli,
 )
+from water_quality.cli.variables.update_stac_files import (
+    cli as update_stac_files_cli,
+)
 
 PKG_NAME = "deafrica-water-quality"
 
@@ -43,6 +46,7 @@ wqms_variables.add_command(generate_tiles_cli)
 wqms_variables.add_command(generate_tasks_cli)
 wqms_variables.add_command(process_annual_tasks_cli)
 wqms_variables.add_command(metadata_generator_cli)
+wqms_variables.add_command(update_stac_files_cli)
 
 
 @click.group()
