@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import defaultdict
 
 import click
@@ -32,9 +33,19 @@ from water_quality.logs import setup_logging
         "and the text file containing the list of waterbodies for vector processing. "
     ),
 )
+@click.option(
+    "--log",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
+    ),
+    default="WARNING",
+    show_default=True,
+    help="control the log level, e.g., --log=error",
+)
 def cli(
     historical_extent_rasters_dir: str,
     output_dir: str,
+    log: str,
 ):
     """
     Get a list of the DE Africa waterbodies historical extent COGs in the
@@ -44,17 +55,18 @@ def cli(
     These waterbodies cover multiple tiles and will be processed separately
     using the vector based processing tool.
     """
-    log = setup_logging()
+    log_level = getattr(logging, log.upper())
+    _log = setup_logging(log_level)
 
-    log.info(
+    _log.info(
         f"Searching for waterbodies historical extent cogs in {historical_extent_rasters_dir} ..."
     )
     historical_extent_cogs = find_geotiff_files(historical_extent_rasters_dir)
-    log.info(
+    _log.info(
         f"Found {len(historical_extent_cogs)} waterbodies historical extent cogs"
     )
 
-    log.info(
+    _log.info(
         "Searching for waterbodies covered by more than 1 historical extent COG ..."
     )
     cog_path_to_uids = {}
@@ -76,7 +88,7 @@ def cli(
         if len(cog_paths) > 1:
             multi_tile_uids.append(uid)
 
-    log.info(
+    _log.info(
         f"Found {len(multi_tile_uids)} waterbodies covered by more than 1 historical extent COG. "
         "These waterbodies will need to be processed seperately during generation of water quality summaries."
     )
@@ -91,13 +103,13 @@ def cli(
     with fs.open(waterbodies_uids_fp, "w") as file:
         file.write(json.dumps(multi_tile_uids) + "\n")
 
-    log.info(
+    _log.info(
         f"Waterbodies' UIDs for vector processing of water quality summaries written to {waterbodies_uids_fp}"
     )
 
     historical_extent_rasters_fp = join_url(output_dir, "tasks")
     with fs.open(historical_extent_rasters_fp, "w") as file:
         file.write(json.dumps(historical_extent_cogs) + "\n")
-    log.info(
+    _log.info(
         f"Historical extent rasters for raster processing of water quality summaries written to {historical_extent_rasters_fp}"
     )
