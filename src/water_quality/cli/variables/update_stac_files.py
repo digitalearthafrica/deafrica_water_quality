@@ -91,14 +91,16 @@ def cli(
     log_level = getattr(logging, log.upper())
     _log = setup_logging(log_level)
 
-    fs = S3FileSystem(
-        anon=False,
+    # Use anonymouse access to find files.
+    # We will use credentials to update the files.
+    s3_fs = S3FileSystem(
+        anon=True,
         # Use profile only on sandbox
         # profile="default",
         s3_additional_kwargs={"ACL": "bucket-owner-full-control"},
     )
 
-    stac_files = fs.glob(stac_path_template)
+    stac_files = s3_fs.glob(stac_path_template)
     stac_files = {f"s3://{file}" for file in set(stac_files)}
 
     if len(stac_files) == 0:
@@ -120,7 +122,7 @@ def cli(
             expected_bucket = s3_url_parse(file_path)[0]
             assert expected_bucket == source_bucket
 
-            with fs.open(file_path) as f:
+            with s3_fs.open(file_path) as f:
                 content = json.dumps(json.load(f))
 
             if self_link_is_dev_bucket(content, dev_bucket):
@@ -129,6 +131,7 @@ def cli(
                 )
                 content = content.replace(dev_bucket, expected_bucket)
 
+                fs = get_filesystem(path=file_path, anon=False)
                 with fs.open(file_path, "w") as file:
                     json.dump(
                         json.loads(content), file, indent=2
