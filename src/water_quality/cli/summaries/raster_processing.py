@@ -3,14 +3,17 @@ import logging
 import sys
 
 import click
-import datacube
 import pandas as pd
 import rioxarray
 import xarray as xr
 from datacube import Datacube
+from waterbodies.db import get_waterbodies_engine
 
 from water_quality.io import check_directory_exists, get_filesystem, join_url
 from water_quality.logs import setup_logging
+from water_quality.summaries.summary import (
+    add_water_quality_observations_to_db,
+)
 from water_quality.tasks import split_tasks
 
 
@@ -115,8 +118,10 @@ def cli(
     ]
     product = "wq_annual"
     dask_chunks = {"x": 300, "y": 300}
-    m2_per_km2 = 1_000_000
+    # m2_per_km2 = 1_000_000
     quantiles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+
+    engine = get_waterbodies_engine()
 
     failed_tasks = []
     # Process each task
@@ -162,11 +167,11 @@ def cli(
                 dask_chunks=dask_chunks,
             )
 
-            assert ds.odc.geobox.crs.projected
-            pixel_area_km2 = (
-                abs(ds.odc.geobox.resolution.x * ds.odc.geobox.resolution.y)
-                / m2_per_km2
-            )
+            # assert ds.odc.geobox.crs.projected
+            # pixel_area_km2 = (
+            #    abs(ds.odc.geobox.resolution.x * ds.odc.geobox.resolution.y)
+            #    / m2_per_km2
+            # )
 
             _log.info(
                 f"Processing per waterbody statistics for {ds.time.size} years for {len(wb_id_to_uid_filtered)} waterbodies ..."
@@ -262,6 +267,14 @@ def cli(
                 columns={"time": "date"}
             )
 
+            add_water_quality_observations_to_db(
+                water_quality_measures=per_waterbody_summaries,
+                engine=engine,
+                update_rows=overwrite,
+            )
+            _log.info(
+                f"Finished processing water quality summaries for {cog_path}"
+            )
         except Exception as error:
             _log.exception(error)
             failed_tasks.append(cog_path)

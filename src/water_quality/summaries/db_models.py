@@ -5,8 +5,8 @@ from sqlalchemy.orm import Mapped
 from waterbodies.db_models import WaterbodyBase
 
 
-class WaterbodyWaterQualityMeasure(WaterbodyBase):
-    __tablename__ = "waterbodies_water_quality_measures"
+class WaterbodyWaterQuality(WaterbodyBase):
+    __tablename__ = "waterbodies_water_quality"
 
     obs_id: Mapped[str] = Column(String, primary_key=True, index=True)
     uid: Mapped[str] = Column(
@@ -99,6 +99,6 @@ class WaterbodyWaterQualityMeasure(WaterbodyBase):
 
     def __repr__(self) -> str:
         return (
-            f"<WaterbodyWaterQualityMeasure obs_id={self.obs_id}, uid={self.uid}, "
+            f"<WaterbodyWaterQuality obs_id={self.obs_id}, uid={self.uid}, "
             + f"date={self.date}, ...>"
         )
