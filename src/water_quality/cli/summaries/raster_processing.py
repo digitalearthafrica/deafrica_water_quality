@@ -1,0 +1,291 @@
+import json
+import logging
+import sys
+
+import click
+import datacube
+import pandas as pd
+import rioxarray
+import xarray as xr
+from datacube import Datacube
+
+from water_quality.io import check_directory_exists, get_filesystem, join_url
+from water_quality.logs import setup_logging
+from water_quality.tasks import split_tasks
+
+
+@click.command(
+    name="process-raster-tasks",
+    no_args_is_help=True,
+)
+@click.argument(
+    "tasks",
+    type=str,
+)
+@click.argument(
+    "waterbodies-to-filter",
+    type=str,
+)
+@click.argument(
+    "max-parallel-steps",
+    type=int,
+)
+@click.argument(
+    "worker-idx",
+    type=int,
+)
+@click.option(
+    "--overwrite/--no-overwrite",
+    default=False,
+    show_default=True,
+    help=(
+        "If overwrite is True tasks that have already been processed "
+        "will be rerun. "
+    ),
+)
+@click.option(
+    "--log",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
+    ),
+    default="WARNING",
+    show_default=True,
+    help="control the log level, e.g., --log=error",
+)
+def cli(
+    tasks: str,
+    waterbodies_to_filter: str,
+    max_parallel_steps: int,
+    worker_idx: int,
+    overwrite: bool,
+    log: str,
+):
+    """
+    Generate annual summaries of water quality variables for DE Africa waterbodies
+    using raster based processing.
+
+    TASKS: a text file containing a list of the DE Africa Waterbodies Historical
+    Extent COGs to be processed.
+
+    WATERBODIES_TO_FILTER: a text file containing a list of waterbodies to be
+    excluded from the raster based processing of the water quality annual summaries.
+    These are waterbodies that cover multiple tiles and will be processed separately
+    using the vector based processing tool.
+
+    MAX_PARALLEL_STEPS: The total number of parallel workers or pods
+    expected in the workflow. This value is used to divide the list of
+    tasks to be processed among the available workers.
+
+    WORKER_IDX: The sequential index (0-indexed) of the current worker.
+    This index determines which subset of tasks the current worker will
+    process.
+    """
+    log_level = getattr(logging, log.upper())
+    _log = setup_logging(log_level)
+
+    fs = get_filesystem(waterbodies_to_filter, anon=False)
+    with fs.open(waterbodies_to_filter, "r") as file:
+        uids_to_exclude = set(json.load(file))
+
+    fs = get_filesystem(tasks, anon=False)
+    with fs.open(tasks, "r") as file:
+        all_tasks = json.load(file)
+
+    tasks_to_run = split_tasks(all_tasks, max_parallel_steps, worker_idx)
+
+    if not tasks_to_run:
+        _log.warning(f"Worker {worker_idx} has no tasks to process. Exiting.")
+        sys.exit(0)
+
+    _log.info(f"Worker {worker_idx} processing {len(tasks_to_run)} tasks")
+
+    dc = Datacube(app="process_raster_tasks")
+    measurements = [
+        "fai",
+        "ndvi",
+        "hue",
+        "owt",
+        "chla",
+        "tsi",
+        "tsm",
+        "st_max",
+        "st_median",
+        "st_min",
+        "water_mask",
+    ]
+    product = "wq_annual"
+    dask_chunks = {"x": 300, "y": 300}
+    m2_per_km2 = 1_000_000
+    quantiles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+
+    failed_tasks = []
+    # Process each task
+    for idx, cog_path in enumerate(tasks_to_run):
+        _log.info(
+            f"Processing historical extent COG {idx + 1} of {len(tasks_to_run)}: {cog_path} "
+        )
+        try:
+            extent_da = rioxarray.open_rasterio(cog_path).squeeze()
+
+            wb_id_to_uid = {
+                int(wb_id): uid
+                for wb_id, uid in json.loads(
+                    extent_da.attrs["WB_ID_to_UID"]
+                ).items()
+            }
+            wb_ids_to_exclude = [
+                wb_id
+                for wb_id, uid in wb_id_to_uid.items()
+                if uid in uids_to_exclude
+            ]
+            wb_id_to_uid_filtered = {
+                wb_id: uid
+                for wb_id, uid in wb_id_to_uid.items()
+                if wb_id not in wb_ids_to_exclude
+            }
+
+            assert len(wb_id_to_uid_filtered) == len(wb_id_to_uid) - len(
+                wb_ids_to_exclude
+            )
+
+            if len(wb_ids_to_exclude) > 0:
+                extent_da = extent_da.where(
+                    ~extent_da.isin(wb_ids_to_exclude), other=0
+                )
+
+            extent_da = extent_da.where(extent_da != 0)
+
+            ds = dc.load(
+                product=product,
+                like=extent_da.odc.geobox,
+                measurements=measurements,
+                dask_chunks=dask_chunks,
+            )
+
+            assert ds.odc.geobox.crs.projected
+            pixel_area_km2 = (
+                abs(ds.odc.geobox.resolution.x * ds.odc.geobox.resolution.y)
+                / m2_per_km2
+            )
+
+            _log.info(
+                f"Processing per waterbody statistics for {ds.time.size} years for {len(wb_id_to_uid_filtered)} waterbodies ..."
+            )
+            df_drop_columns = ["band", "spatial_ref"]
+
+            log.info("Processing water area consistently indicating algae ...")
+            water_mask_count = (
+                (~ds["water_mask"].isnull()).groupby(extent_da).sum()
+            )
+            fai_count = (~ds["fai"].isnull()).groupby(extent_da).sum()
+            fai_cover = (
+                fai_count / water_mask_count.where(water_mask_count > 0)
+            ) * 100
+            fai_cover_df = fai_cover.to_dataframe(name="fai_cover").drop(
+                columns=df_drop_columns
+            )
+
+            log.info(
+                "Processing water area consistently indicating vegetation ..."
+            )
+            ndvi_count = (~ds["ndvi"].isnull()).groupby(extent_da).sum()
+            ndvi_cover = (
+                ndvi_count / water_mask_count.where(water_mask_count > 0)
+            ) * 100
+
+            ndvi_cover_df = ndvi_cover.to_dataframe(name="ndvi_cover").drop(
+                columns=df_drop_columns
+            )
+
+            annual_quantile_measurements = [
+                "hue",
+                "owt",
+                "chla",
+                "tsi",
+                "tsm",
+                "st_max",
+                "st_median",
+                "st_min",
+            ]
+            # Sanity check
+            assert set(annual_quantile_measurements).issubset(
+                set(measurements)
+            )
+            assert set(annual_quantile_measurements).issubset(
+                set(list(ds.data_vars))
+            )
+
+            quantiles_df_to_merge = []
+            for measurement in annual_quantile_measurements:
+                _log.info(
+                    f"Processing per waterbody quantiles for the {measurement} variable"
+                )
+                with xr.set_options(use_flox=False):
+                    quantiles_da = (
+                        ds[measurement].groupby(extent_da).quantile(quantiles)
+                    )
+                quantiles_df = quantiles_da.to_dataframe().unstack("quantile")
+                quantiles_df.columns = [
+                    f"{measurement}_q{q}".replace(".", "_")
+                    for _, q in quantiles_df.columns
+                ]
+                quantiles_df_to_merge.append(quantiles_df)
+
+            per_waterbody_summaries = pd.concat(
+                [*quantiles_df_to_merge, fai_cover_df, ndvi_cover_df], axis=1
+            )
+            per_waterbody_summaries = (
+                per_waterbody_summaries.reset_index().rename(
+                    columns={"group": "wb_id"}
+                )
+            )
+
+            per_waterbody_summaries["uid"] = per_waterbody_summaries[
+                "wb_id"
+            ].map(wb_id_to_uid_filtered)
+            cols = per_waterbody_summaries.columns.tolist()
+            cols.insert(0, cols.pop(cols.index("uid")))
+            per_waterbody_summaries = per_waterbody_summaries[cols].drop(
+                columns=["wb_id"]
+            )
+
+            per_waterbody_summaries["obs_id"] = (
+                per_waterbody_summaries["time"].dt.strftime("%Y/%m/%d")
+                + "_"
+                + per_waterbody_summaries["uid"]
+            )
+            cols = per_waterbody_summaries.columns.tolist()
+            cols.insert(0, cols.pop(cols.index("obs_id")))
+            per_waterbody_summaries = per_waterbody_summaries[cols]
+
+            per_waterbody_summaries = per_waterbody_summaries.rename(
+                columns={"time": "date"}
+            )
+
+        except Exception as error:
+            _log.exception(error)
+            failed_tasks.append(cog_path)
+
+    # Handle failed tasks
+    if failed_tasks:
+        failed_tasks_json_array = json.dumps(failed_tasks)
+
+        tasks_directory = "/tmp/"
+        failed_tasks_output_file = join_url(tasks_directory, "failed_tasks")
+
+        fs = get_filesystem(path=tasks_directory, anon=False)
+        if not check_directory_exists(path=tasks_directory):
+            fs.mkdirs(path=tasks_directory, exist_ok=True)
+
+        with fs.open(failed_tasks_output_file, "a") as file:
+            file.write(failed_tasks_json_array + "\n")
+        log.error(f"Failed tasks: {failed_tasks_json_array}")
+        log.info(f"Failed tasks written to {failed_tasks_output_file}")
+        sys.exit(1)
+    else:
+        log.info(f"Worker {worker_idx} completed successfully!")
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    cli()
