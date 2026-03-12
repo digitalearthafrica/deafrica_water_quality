@@ -178,7 +178,9 @@ def cli(
             )
             df_drop_columns = ["band", "spatial_ref"]
 
-            log.info("Processing water area consistently indicating algae ...")
+            _log.info(
+                "Processing water area consistently indicating algae ..."
+            )
             water_mask_count = (
                 (~ds["water_mask"].isnull()).groupby(extent_da).sum()
             )
@@ -190,7 +192,7 @@ def cli(
                 columns=df_drop_columns
             )
 
-            log.info(
+            _log.info(
                 "Processing water area consistently indicating vegetation ..."
             )
             ndvi_count = (~ds["ndvi"].isnull()).groupby(extent_da).sum()
