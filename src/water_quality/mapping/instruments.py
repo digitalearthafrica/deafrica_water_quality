@@ -21,11 +21,11 @@ INSTRUMENTS_PRODUCTS = {**COMPOSITE_INSTRUMENTS, **SINGLE_DAY_INSTRUMENTS}
 
 
 INSTRUMENTS_DATES = {
-    "oli_agm": [2013, 2024],
+    "oli_agm": [2013, 2025],
     "oli": [2013, 2025],
-    "msi_agm": [2017, 2024],
+    "msi_agm": [2017, 2025],
     "msi": [2017, 2025],
-    "wofs_ann": [1990, 2024],
+    "wofs_ann": [1990, 2025],
     "tm_agm": [1990, 2012],
     "tm": [1990, 2023],
     "tirs": [2000, 2025],

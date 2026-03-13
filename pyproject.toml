@@ -35,7 +35,6 @@ dependencies = [
     "odc-cloud[ASYNC]",
     "odc-dscache",
     "odc-geo",
-    "odc-loader @ git+https://github.com/opendatacube/odc-loader.git@7cf11257766783d63a10a524f5c1a59e70960f22",
     "odc-stats>=1.9.6",
     "pandas",
     "PyYAML",
@@ -48,13 +47,14 @@ dependencies = [
     "toolz",
     "tqdm",
     "xarray[accel,io]",
+    "waterbodies @ git+https://github.com/vikineema/waterbodies.git@move-to-wq",
     "yarl"
 ]
 
 [project.optional-dependencies]
 dev = [
     "ruff",
-    "yamlint",
+    "yamllint",
  ]
 test = [
     "pytest",
@@ -66,12 +66,8 @@ Repository = "https://github.com/digitalearthafrica/deafrica_water_quality.git"
 "Bug Tracker" = "https://github.com/digitalearthafrica/deafrica_water_quality/issues"
 
 [project.scripts]
-wq-version = "water_quality.cli.get_version:cli"
-wq-list-test-areas = "water_quality.cli.list_test_areas:cli"
-wq-generate-tiles = "water_quality.cli.generate_tiles:cli"
-wq-generate-tasks = "water_quality.cli.generate_tasks:cli"
-wq-process-annual-wq-variables = "water_quality.cli.process_annual_wq_variables:cli"
-wq-prepare-metadata = "water_quality.cli.metadata_generator:cli"
+wqms-variables = "water_quality.cli.main:wqms_variables"
+wqms-summaries = "water_quality.cli.main:wqms_summaries"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

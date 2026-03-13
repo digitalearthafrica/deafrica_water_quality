@@ -1,3 +1,0 @@
-# Use conda packages where possible;
-# pip only for packages not available via conda
-memory-profiler

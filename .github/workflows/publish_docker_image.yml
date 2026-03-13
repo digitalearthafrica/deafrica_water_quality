@@ -41,7 +41,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./docker/Dockerfile
+          file: ./Dockerfile
           build-args: BUILD_ENV=prod
           push: true
           tags: ${{ steps.meta.outputs.tags }}

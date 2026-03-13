@@ -1,0 +1,20 @@
+name: deafrica-water-quality-env
+channels:
+  - conda-forge
+dependencies:
+  # base
+  - python==3.12.3
+  - gdal==3.12.2
+  - libgdal
+  - libgdal-arrow-parquet
+  - pip-tools
+  # for hdstats psycopg2
+  - compilers
+  # for spatialite
+  - libspatialite
+  # developer tools
+  - curl
+  - git
+  - unzip
+  #- jq
+  

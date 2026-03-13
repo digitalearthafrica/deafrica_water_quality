@@ -5,24 +5,22 @@ ARG BUILD_ENV=prod
 ARG MAMBA_DOCKERFILE_ACTIVATE=1 
 
 USER root
-COPY docker/environment_prod.yaml docker/requirements_prod.txt \
-    docker/environment_dev.yaml docker/requirements_dev.txt /tmp/
+RUN mkdir -p /code
+WORKDIR /code
+COPY environment.yaml requirements.txt pyproject.toml /code/
+COPY src /code/src/
 
-# Install packages into the empty conda environmemnt base
-RUN micromamba install --yes --name base  --file /tmp/environment_prod.yaml --verbose \
-     && micromamba run --name base pip install --no-cache-dir -r /tmp/requirements_prod.txt
+RUN micromamba install --yes --name base  --file environment.yaml --verbose 
 
 RUN if [ "$BUILD_ENV" = "dev" ]; then \
-    micromamba install --yes --name base  --file /tmp/environment_dev.yaml --verbose \
-        && micromamba run --name base pip install --no-cache-dir -r /tmp/requirements_dev.txt; \
-    fi 
+  micromamba run --name base pip install --no-cache-dir jupyterlab jupyterlab_iframe jupyter-resource-usage nodejs; \
+fi
 
-# Install python package
-COPY src /tmp/src/
-COPY pyproject.toml /tmp/
-RUN pip install --no-cache-dir /tmp/ 
+# RUN micromamba run --name base  pip-compile --all-extras --output-file=requirements.txt pyproject.toml
+RUN micromamba run --name base pip install --no-cache-dir -r requirements.txt
+RUN micromamba run --name base pip install --no-cache-dir /code
 
-# conda clean
+# Clean up
 RUN micromamba clean --all --index-cache --packages --tarballs \
      --locks --trash --force-pkgs-dirs --yes \
     && find /opt/conda/ -follow -type f -name '*.a' -delete \
@@ -30,12 +28,10 @@ RUN micromamba clean --all --index-cache --packages --tarballs \
     && find /opt/conda/ -follow -type d -name '__pycache__' -delete \
     && find /opt/conda/ -follow -type f -name '*.js.map' -delete \
     && find /opt/conda/lib/python*/site-packages/bokeh/server/static -follow -type f -name '*.js' ! -name '*.min.js' -delete \
-    # pip clean
     && micromamba run --name base pip cache purge \
-    # file clean up
-    && rm -rf /tmp/* /root/.cache \
-    # List packages installed
     && micromamba env export --name base --explicit
+
+RUN  wqms-summaries --version
 
 FROM ubuntu:jammy
 
@@ -81,15 +77,11 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
         && rm awscliv2.zip \
         && rm -rf ./aws/
 
-## Jupyter config
-COPY docker/assets/overrides.json $JUPYTERLAB_DIR/settings/
-COPY docker/assets/jupyter_lab_config.py  $PYTHON_ENV/etc/jupyter/
+COPY jupyter_lab_config.py  $PYTHON_ENV/etc/jupyter/
 
-# Enable server extensions
 USER $NB_USER
 RUN if [ "$BUILD_ENV" = "dev" ]; then \
-    jupyter server extension enable --py --sys-prefix jupyterlab_iframe jupyter_resource_usage \
-    && jupyter lab build; \
+    jupyter server extension enable --py --sys-prefix jupyterlab_iframe jupyter_resource_usage; \
     fi 
 
 USER root
@@ -99,7 +91,7 @@ RUN apt clean autoclean -y \
     && rm -rf /var/lib/{apt,dpkg,cache}/
 
 # Configure entrypoint
-COPY docker/assets/entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 USER $NB_USER
