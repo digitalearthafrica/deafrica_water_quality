@@ -6,13 +6,64 @@ import xarray as xr
 log = logging.getLogger(__name__)
 
 NDVI_BANDS = {
-    "tm_agm": {"red": "tm03_agm", "nir": "tm04_agm"},
-    "oli_agm": {"red": "oli04_agm", "nir": "oli05_agm"},
-    "msi_agm": {"red": "msi04_agm", "nir": "msi8a_agm"},
+    "tm_agm": {
+        "red": "tm03_agm",
+        "nir": "tm04_agm"
+    },
+    "oli_agm": {
+        "red": "oli04_agm",
+        "nir": "oli05_agm"
+    },
+    "msi_agm": {
+        "red": "msi04_agm",
+        "nir": "msi8a_agm"
+    },
+    "tm": {
+        "red": "tm03",
+        "nir": "tm04"
+    },
+    "oli": {
+        "red": "oli04",
+        "nir": "oli05"
+    },
+    "msi": {
+        "red": "msi04",
+        "nir": "msi8a"
+    },
 }
 
 REFERENCE_MEAN = {"msi_agm": 0.2335, "oli_agm": 0.2225, "tm_agm": 0.2000}
 THRESHOLD = {"msi_agm": 0.05, "oli_agm": 0.05, "tm_agm": 0.05}
+
+
+def NDVI(ds: xr.Dataset, instrument: str) -> xr.DataArray:
+    """
+    Calculate NDVI for a given instrument.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Input dataset containing the spectral bands.
+    instrument : str
+        Name of the satellite/instrument (e.g., 'msi', 'oli', 'tm',
+        'msi_agm', etc.).
+
+    Returns
+    -------
+    xr.DataArray
+        NDVI values.
+    """
+    if instrument not in NDVI_BANDS.keys():
+        log.error(
+            f"Invalid instrument '{instrument}'. Returning empty DataArray.")
+        return xr.DataArray(data=[], dims=["time"], coords={"time": []})
+    else:
+        inst_bands = NDVI_BANDS[instrument]
+        red_band = inst_bands["red"]
+        nir_band = inst_bands["nir"]
+        ndvi = (ds[nir_band] - ds[red_band]) / (ds[nir_band] + ds[red_band])
+        ndvi.name = "NDVI"
+        return ndvi
 
 
 def geomedian_NDVI(
@@ -70,15 +121,9 @@ def geomedian_NDVI(
             # Calculate the NDVI for the instrument and scale
             inst_ds = annual_data[inst]
             count_band = f"{inst}_count"
-            inst_bands = NDVI_BANDS[inst]
-            red_band = inst_bands["red"]
-            nir_band = inst_bands["nir"]
-            ndvi_da = (inst_ds[nir_band] - inst_ds[red_band]) / (
-                inst_ds[nir_band] + inst_ds[red_band]
-            )
             scale = REFERENCE_MEAN["msi_agm"] / REFERENCE_MEAN[inst]
-            ndvi_da = ndvi_da * scale
 
+            ndvi_da = NDVI(inst_ds, inst) * scale
             ndvi_ds[f"{inst}_ndvi"] = ndvi_da
             all_inst_ndvi_list.append(ndvi_da)
             all_inst_count_list.append(inst_ds[count_band])
@@ -87,15 +132,12 @@ def geomedian_NDVI(
     all_inst_count = xr.concat(all_inst_count_list, dim="instrument")
     weighted_ndvi_sum = (all_inst_ndvi * all_inst_count).sum(dim="instrument")
     all_inst_count_total = all_inst_count.sum(dim="instrument")
-    mean_ndvi = (
-        weighted_ndvi_sum.where(all_inst_count_total != 0)
-        / all_inst_count_total
-    )
+    mean_ndvi = (weighted_ndvi_sum.where(all_inst_count_total != 0) /
+                 all_inst_count_total)
     # Trim the ndvi values back to relevant areas and values
     ndvi_ds["agm_ndvi"] = mean_ndvi
     ndvi_ds = ndvi_ds.where(ndvi_ds > THRESHOLD["msi_agm"]).where(
-        water_mask == 1
-    )
+        water_mask == 1)
     del (
         all_inst_ndvi_list,
         all_inst_count_list,
