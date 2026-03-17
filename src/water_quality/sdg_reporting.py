@@ -165,10 +165,12 @@ def get_monthly_deviations(
     def _get_deviations(year_data, baseline):
         deviations = year_data.groupby("time.month").apply(
             lambda x: (
-                (x - baseline.sel(month=x["time.month"]))
-                / baseline.sel(month=x["time.month"])
+                (
+                    (x - baseline.sel(month=x["time.month"]))
+                    / baseline.sel(month=x["time.month"])
+                )
+                * 100
             )
-            * 100
         )
 
         return deviations.drop_vars("month")
@@ -401,15 +403,17 @@ def get_turbidity_and_tsi_summary_tables(
     # Get the proportion of waterbodies affected
     turbidity_affected_lakes_count["EN_LKW_QLTRB %"] = (
         turbidity_affected_lakes_count.apply(
-            lambda x: (x["no_of_affected_lakes"] / x["total_no_of_lakes"])
-            * 100,
+            lambda x: (
+                (x["no_of_affected_lakes"] / x["total_no_of_lakes"]) * 100
+            ),
             axis=1,
         )
     )
     tsi_affected_lakes_count["EN_LKW_QLTRST %"] = (
         tsi_affected_lakes_count.apply(
-            lambda x: (x["no_of_affected_lakes"] / x["total_no_of_lakes"])
-            * 100,
+            lambda x: (
+                (x["no_of_affected_lakes"] / x["total_no_of_lakes"]) * 100
+            ),
             axis=1,
         )
     )
