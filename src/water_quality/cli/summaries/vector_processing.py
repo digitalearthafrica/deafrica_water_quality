@@ -13,11 +13,13 @@ from odc.geo.geom import Geometry
 from odc.geo.xr import rasterize
 from waterbodies.db import get_waterbodies_engine
 
+from water_quality.dates import year_to_dc_datetime
 from water_quality.grid import get_waterbodies_grid
 from water_quality.io import check_directory_exists, get_filesystem, join_url
 from water_quality.logs import setup_logging
 from water_quality.summaries.summary import (
     add_water_quality_observations_to_db,
+    check_obs_ids,
 )
 from water_quality.tasks import split_tasks
 
@@ -120,7 +122,6 @@ def cli(
     engine = get_waterbodies_engine()
 
     failed_tasks = []
-    # Process each task
     for idx, waterbody_uid in enumerate(tasks_to_run):
         _log.info(
             f"Processing waterbody {idx + 1} of {len(tasks_to_run)}: {waterbody_uid} "
@@ -133,6 +134,7 @@ def cli(
             waterbody_geobox = GeoBox.from_geopolygon(
                 waterbody_geom, resolution=grid.resolution, crs=grid.crs
             )
+            # Load all years available for the wq_annual product.
             ds = dc.load(
                 product=product,
                 like=waterbody_geobox,
@@ -140,7 +142,41 @@ def cli(
                 dask_chunks=dask_chunks,
             )
 
-            extent_da = rasterize(waterbody_geom, how=waterbody_geobox)
+            # This will be reused futher along to create the actual
+            # observation IDs.
+            years = [
+                pd.Timestamp(year).strftime("%Y/%m/%d")
+                for year in ds.time.values
+            ]
+            possible_obs_ids = [f"{year}_{waterbody_uid}" for year in years]
+            existing_obs_ids = check_obs_ids(possible_obs_ids, engine)
+
+            if overwrite:
+                obs_ids = set(existing_obs_ids).union(
+                    set(possible_obs_ids) - set(existing_obs_ids)
+                )
+            else:
+                obs_ids = set(possible_obs_ids) - set(existing_obs_ids)
+
+            obs_ids = sorted(list(obs_ids))
+
+            if not obs_ids:
+                _log.info(
+                    f"All possible water quality observations for waterbody {waterbody_uid} "
+                    "already exist in the database and overwrite is set to False. Skipping "
+                    "processing for this waterbody."
+                )
+                continue
+
+            # Using same logic as above when creating the possible observation
+            # ids, get the years corresponding to the obs_ids that need to be processed.
+            years_to_process = [
+                year_to_dc_datetime(int(i.split("_")[0].split("/")[0]))
+                for i in obs_ids
+            ]
+            ds = ds.sel(time=years_to_process)
+
+            extent_da = rasterize(waterbody_geom, how=ds.odc.geobox)
             ds = ds.where(extent_da)
 
             _log.info(
@@ -151,11 +187,9 @@ def cli(
             _log.info(
                 "Processing water area consistently indicating algae ..."
             )
-            water_mask_count = (
-                (~ds["water_mask"].isnull()).groupby(extent_da).sum()
-            )
-            fai_count = (~ds["fai"].isnull()).groupby(extent_da).sum()
-            ndvi_count = (~ds["ndvi"].isnull()).groupby(extent_da).sum()
+            water_mask_count = (~ds["water_mask"].isnull()).sum(dim=("x", "y"))
+            fai_count = (~ds["fai"].isnull()).sum(dim=("x", "y"))
+            ndvi_count = (~ds["ndvi"].isnull()).sum(dim=("x", "y"))
 
             water_mask_count, fai_count, ndvi_count = dask.compute(
                 water_mask_count, fai_count, ndvi_count
@@ -196,7 +230,7 @@ def cli(
                 "st_min",
             ]
 
-            # Sanity check — single set construction, reused for both assertions
+            # Sanity check
             annual_quantile_set = set(annual_quantile_measurements)
             missing_from_measurements = annual_quantile_set - set(measurements)
             missing_from_ds = annual_quantile_set - set(ds.data_vars)
@@ -237,7 +271,9 @@ def cli(
             )
             gc.collect()
 
-            per_waterbody_summaries = per_waterbody_summaries.reset_index()
+            per_waterbody_summaries = per_waterbody_summaries.reset_index(
+                names=["time"]
+            )
 
             per_waterbody_summaries["uid"] = waterbody_uid
 
@@ -261,7 +297,7 @@ def cli(
                 update_rows=overwrite,
             )
             _log.info(
-                f"Finished processing water quality summaries the waterbody {waterbody_uid}"
+                f"Finished processing water quality summaries for the waterbody {waterbody_uid}"
             )
 
         except Exception as error:
