@@ -9,6 +9,7 @@ import gc   # garbage collection
 import pandas as pd
 import sys
 import datacube
+from scipy.interpolate import interp1d
 
 
 # appending a path
@@ -16,6 +17,69 @@ sys.path.append('/home/jovyan/dev/deafrica_water_quality/WP1.2')
 from _WQ_functions import trophic_state
 from _WQ_functions import instruments_list  
 from _WQ_functions import *
+
+# --- a function to help produce a smoothed curve "not-through" noisy data points
+def piecewise_linreg(x,y,keepnans=True,test=False):
+    #from two series, representing paired  x,y values, this function estimates 
+    #  the value of each y point with a linear regresion of the points either side of it, and itself
+    #It alows one to fit a trend line to the series that just approximates the data point.   
+    #The process needs to ignore nans, but the returned sequence must be consistent in x values, 
+    #  so  I remove all nans, do the fits, replace nans
+    #This won't work if x is datetime64 because the variables won't stack. Therefore feed in time as a real value.
+    
+    a      = np.vstack((x,y,y))
+    aprime = np.copy(a)
+        
+    newx = np.argwhere(a.sum(0)>=0)     #no nans in these columns
+    xlen = newx.size                
+    b    = np.zeros(a.shape[0]*xlen).reshape(a.shape[0],xlen)*np.nan
+    for i in np.arange(0,xlen):
+        b[:,i] = a[:,newx[i][0]]    
+    a = b  
+
+    centre_weighted = True
+    for i in range(0,len(a[0])-2) : 
+        if centre_weighted:
+            y = np.append(a[1][i:i+3],a[1][i+1])
+            x = np.append(a[0][i:i+3],a[0][i+1])
+            A = np.vstack((np.ones(4)*1.,x))
+        else:
+            y = a[1][i:i+3]
+            x = a[0][i:i+3]
+            A = np.vstack((np.ones(3)*1.,x))
+                
+        (intercept,slope) = sp.linalg.lstsq(A.T,y)[0]
+        def f(x) : 
+            return (x * slope + intercept).round(3)
+        a[2,i+1] = f(a[0][i+1])
+        if test : print(f(a[0][i+1]))
+        if i == 0  : 
+            a[2,i]   = f(a[0][i])
+        if i == len(a[0])-3 : 
+            if test : print('i = ',i)
+            a[2,i+2] = f(a[0][i+2])
+
+    if keepnans:
+        #bring back the complete series, with nans:
+        for i in range(0,xlen) :
+            aprime[:,newx[i][0]] = a[:,i]
+        a = aprime
+            
+    bias,sd = sum(a[2]-a[1]),((a[2]-a[1])**2).sum()**0.5
+    if test : print('bias = ',bias.round(3),'sd = ',sd.round(3))
+    #return(a[[0,2],:],bias,sd)
+    return([a[0,:],a[2,:]],bias,sd)
+
+
+# --- a function to produce a smoothed curve through given datapoints (time series)
+def smoothed_series(times,values,tdelta = '2D') :
+    tlist = times [~np.isnan(values)]
+    ylist = values[~np.isnan(values)]
+    q_interp   = sp.interpolate.interp1d(tlist,ylist,kind='quadratic',fill_value='extrapolate')
+    #make a denser time series to allow representation of the median with a smooth curve
+    t_new      = pd.date_range(np.min(tlist).item(), np.max(tlist).item(), freq=tdelta)  
+    return([t_new,q_interp(t_new)])
+
 
 # --- default coefficients from WP2.2. ----
 def calibrate(data,varname):
