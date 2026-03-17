@@ -1,8 +1,10 @@
+import gc
 import json
 import logging
 import sys
 
 import click
+import dask
 import pandas as pd
 from datacube import Datacube
 from deafrica_tools.waterbodies import get_waterbody
@@ -110,7 +112,8 @@ def cli(
         "water_mask",
     ]
     product = "wq_annual"
-    dask_chunks = {"x": 800, "y": 800}
+    # ? double what's used in raster processing.
+    dask_chunks = {"x": 6000, "y": 6000}
     # m2_per_km2 = 1_000_000
     quantiles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
@@ -148,25 +151,39 @@ def cli(
             _log.info(
                 "Processing water area consistently indicating algae ..."
             )
-            water_mask_count = (~ds["water_mask"].isnull()).sum(dim=("x", "y"))
-            fai_count = (~ds["fai"].isnull()).sum(dim=("x", "y"))
+            water_mask_count = (
+                (~ds["water_mask"].isnull()).groupby(extent_da).sum()
+            )
+            fai_count = (~ds["fai"].isnull()).groupby(extent_da).sum()
+            ndvi_count = (~ds["ndvi"].isnull()).groupby(extent_da).sum()
+
+            water_mask_count, fai_count, ndvi_count = dask.compute(
+                water_mask_count, fai_count, ndvi_count
+            )
+
+            # --- FAI cover (algae) ---
             fai_cover = (
                 fai_count / water_mask_count.where(water_mask_count > 0)
             ) * 100
+
             fai_cover_df = fai_cover.to_dataframe(name="fai_cover").drop(
                 columns=df_drop_columns
             )
+            del fai_cover
+            gc.collect()
 
             _log.info(
                 "Processing water area consistently indicating vegetation ..."
             )
-            ndvi_count = (~ds["ndvi"].isnull()).sum(dim=("x", "y"))
+            # --- NDVI cover (vegetation) ---
             ndvi_cover = (
                 ndvi_count / water_mask_count.where(water_mask_count > 0)
             ) * 100
             ndvi_cover_df = ndvi_cover.to_dataframe(name="ndvi_cover").drop(
                 columns=df_drop_columns
             )
+            del water_mask_count, ndvi_cover
+            gc.collect()
 
             annual_quantile_measurements = [
                 "hue",
@@ -178,12 +195,17 @@ def cli(
                 "st_median",
                 "st_min",
             ]
-            # Sanity check
-            assert set(annual_quantile_measurements).issubset(
-                set(measurements)
+
+            # Sanity check — single set construction, reused for both assertions
+            annual_quantile_set = set(annual_quantile_measurements)
+            missing_from_measurements = annual_quantile_set - set(measurements)
+            missing_from_ds = annual_quantile_set - set(ds.data_vars)
+
+            assert not missing_from_measurements, (
+                f"Measurements missing from `measurements`: {missing_from_measurements}"
             )
-            assert set(annual_quantile_measurements).issubset(
-                set(list(ds.data_vars))
+            assert not missing_from_ds, (
+                f"Measurements missing from `ds.data_vars`: {missing_from_ds}"
             )
 
             quantiles_df_to_merge = []
@@ -206,6 +228,15 @@ def cli(
             per_waterbody_summaries = pd.concat(
                 [*quantiles_df_to_merge, fai_cover_df, ndvi_cover_df], axis=1
             )
+            # Dask clean up
+            del (
+                quantiles_df,
+                quantiles_df_to_merge,
+                fai_cover_df,
+                ndvi_cover_df,
+            )
+            gc.collect()
+
             per_waterbody_summaries = per_waterbody_summaries.reset_index()
 
             per_waterbody_summaries["uid"] = waterbody_uid
