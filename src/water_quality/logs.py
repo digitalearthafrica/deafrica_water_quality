@@ -10,6 +10,9 @@ def setup_logging(level: int = logging.INFO) -> logging.Logger:
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
 
+    # Suppress noisy credential discovery messages from botocore
+    logging.getLogger("botocore.credentials").setLevel(logging.WARNING)
+
     if not root_logger.handlers:
         handler = logging.StreamHandler(sys.stderr)
         formatter = logging.Formatter(
