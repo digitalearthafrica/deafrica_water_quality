@@ -292,11 +292,11 @@ def cli(
 
         with fs.open(failed_tasks_output_file, "a") as file:
             file.write(failed_tasks_json_array + "\n")
-        log.error(f"Failed tasks: {failed_tasks_json_array}")
-        log.info(f"Failed tasks written to {failed_tasks_output_file}")
+        _log.error(f"Failed tasks: {failed_tasks_json_array}")
+        _log.info(f"Failed tasks written to {failed_tasks_output_file}")
         sys.exit(1)
     else:
-        log.info(f"Worker {worker_idx} completed successfully!")
+        _log.info(f"Worker {worker_idx} completed successfully!")
         sys.exit(0)
 
 
