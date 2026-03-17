@@ -185,3 +185,34 @@ def add_water_quality_observations_to_db(
         _log.error(
             f"No water quality observations to insert into the {table.name} table"
         )
+
+
+def check_obs_ids(observation_ids: list[str], engine: Engine) -> list[str]:
+    """
+    Check if the water_quality_table contains the waterbody observation IDs in
+    `observation_ids`. Returns only the observation IDs found in the database
+    table.
+
+    Parameters
+    ----------
+    observation_ids : list[str]
+        A list of waterbody observation IDs to check in the database table.
+    engine : Engine
+        The SQLAlchemy engine connected to the database.
+
+    Returns
+    -------
+    list[str]
+        A list of waterbody observation IDs found in the database table.
+    """
+    if isinstance(observation_ids, str):
+        observation_ids = [observation_ids]
+
+    Session = sessionmaker(bind=engine)
+    table = create_water_quality_table(engine=engine)
+
+    with Session.begin() as session:
+        results = session.scalars(
+            select(table.c.obs_id).where(table.c.obs_id.in_(observation_ids))
+        ).all()
+    return results
