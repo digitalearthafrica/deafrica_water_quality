@@ -183,10 +183,16 @@ def cli(
                 "Processing water area consistently indicating algae ..."
             )
             water_mask_count = (
-                (~ds["water_mask"].isnull()).groupby(extent_da).sum()
+                (~ds["water_mask"].isnull())
+                .groupby(extent_da)
+                .sum(dim=("x", "y"))
             )
-            fai_count = (~ds["fai"].isnull()).groupby(extent_da).sum()
-            ndvi_count = (~ds["ndvi"].isnull()).groupby(extent_da).sum()
+            fai_count = (
+                (~ds["fai"].isnull()).groupby(extent_da).sum(dim=("x", "y"))
+            )
+            ndvi_count = (
+                (~ds["ndvi"].isnull()).groupby(extent_da).sum(dim=("x", "y"))
+            )
 
             water_mask_count, fai_count, ndvi_count = dask.compute(
                 water_mask_count, fai_count, ndvi_count
