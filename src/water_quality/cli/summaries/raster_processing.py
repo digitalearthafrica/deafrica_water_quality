@@ -15,6 +15,7 @@ from water_quality.io import check_directory_exists, get_filesystem, join_url
 from water_quality.logs import setup_logging
 from water_quality.summaries.summary import (
     add_water_quality_observations_to_db,
+    check_obs_ids,
 )
 from water_quality.tasks import split_tasks
 
@@ -161,18 +162,42 @@ def cli(
 
             extent_da = extent_da.where(extent_da != 0)
 
+            # Load all years of data available
             ds = dc.load(
                 product=product,
                 like=extent_da.odc.geobox,
                 measurements=measurements,
                 dask_chunks=dask_chunks,
             )
+            years = [
+                pd.Timestamp(year).strftime("%Y/%m/%d")
+                for year in ds.time.values
+            ]
+            waterbody_uids = list(wb_id_to_uid_filtered.values())
 
-            # assert ds.odc.geobox.crs.projected
-            # pixel_area_km2 = (
-            #    abs(ds.odc.geobox.resolution.x * ds.odc.geobox.resolution.y)
-            #    / m2_per_km2
-            # )
+            possible_obs_ids = [
+                f"{year}_{waterbody_uid}"
+                for year in years
+                for waterbody_uid in waterbody_uids
+            ]
+            existing_obs_ids = check_obs_ids(possible_obs_ids, engine)
+
+            if overwrite:
+                obs_ids = set(existing_obs_ids).union(
+                    set(possible_obs_ids) - set(existing_obs_ids)
+                )
+            else:
+                obs_ids = set(possible_obs_ids) - set(existing_obs_ids)
+
+            obs_ids = sorted(list(obs_ids))
+
+            if not obs_ids:
+                _log.info(
+                    f"All possible water quality observations for waterbodies in the historical extent COG file {cog_path} "
+                    "already exist in the database and overwrite is set to False. Skipping "
+                    "processing for this historical extent COG file."
+                )
+                continue
 
             _log.info(
                 f"Processing per waterbody statistics for {ds.time.size} years for {len(wb_id_to_uid_filtered)} waterbodies ..."
@@ -183,15 +208,16 @@ def cli(
                 "Processing water area consistently indicating algae ..."
             )
             water_mask_count = (
-                (~ds["water_mask"].isnull())
+                ds["water_mask"]
+                .notnull()
                 .groupby(extent_da)
                 .sum(dim=("x", "y"))
             )
             fai_count = (
-                (~ds["fai"].isnull()).groupby(extent_da).sum(dim=("x", "y"))
+                ds["fai"].notnull().groupby(extent_da).sum(dim=("x", "y"))
             )
             ndvi_count = (
-                (~ds["ndvi"].isnull()).groupby(extent_da).sum(dim=("x", "y"))
+                ds["ndvi"].notnull().groupby(extent_da).sum(dim=("x", "y"))
             )
 
             water_mask_count, fai_count, ndvi_count = dask.compute(
