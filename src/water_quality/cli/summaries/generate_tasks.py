@@ -49,12 +49,12 @@ def cli(
     log: str,
 ):
     """
-    Get a list of the DE Africa waterbodies historical extent COGs in the
-    HISTORICAL_EXTENT_RASTERS_DIR directory to process for the water quality
-    annual summaries using the raster processing tool and a mapping of waterbodies
-    uids and their corresponding historical extent COGs for vector processing.
-    These waterbodies cover multiple tiles and will be processed separately
-    using the vector based processing tool.
+    From the DE Africa waterbodies historical extent COGs in the
+    HISTORICAL_EXTENT_RASTERS_DIR directory, get a list of the COGs to process
+    using the raster processing tool to get the per waterbody annual summaries,
+    for the waterbodies that span a single tile.
+    Also get a mapping of waterbodies uids and their corresponding historical extent
+    COGs for vector processing for the waterbodies that span multiple tiles.
     """
     log_level = getattr(logging, log.upper())
     _log = setup_logging(log_level)
