@@ -29,8 +29,9 @@ from water_quality.logs import setup_logging
     default="/tmp",
     show_default=True,
     help=(
-        "The directory to write the text file containing the historical extent rasters file paths to "
-        "and the text file containing the list of waterbodies for vector processing. "
+        "The directory to write the text file containing the historical extent rasters file paths "
+        "for raster processing and the json file containing the waterbodies uids and their "
+        "corresponding COG paths for vector processing. "
     ),
 )
 @click.option(
@@ -50,8 +51,8 @@ def cli(
     """
     Get a list of the DE Africa waterbodies historical extent COGs in the
     HISTORICAL_EXTENT_RASTERS_DIR directory to process for the water quality
-    annual summaries and a list of waterbodies to exclude from the raster
-    based processing of the water quality annual summaries.
+    annual summaries using the raster processing tool and a mapping of waterbodies
+    uids and their corresponding historical extent COGs for vector processing.
     These waterbodies cover multiple tiles and will be processed separately
     using the vector based processing tool.
     """
@@ -83,10 +84,10 @@ def cli(
         for uid in uids:
             uids_to_cog_paths[uid].append(cog_path)
 
-    multi_tile_uids = []
+    multi_tile_uids = {}
     for uid, cog_paths in uids_to_cog_paths.items():
         if len(cog_paths) > 1:
-            multi_tile_uids.append(uid)
+            multi_tile_uids[uid] = cog_paths
 
     _log.info(
         f"Found {len(multi_tile_uids)} waterbodies covered by more than 1 historical extent COG. "
@@ -101,7 +102,7 @@ def cli(
         output_dir, "waterbodies_for_vector_processing"
     )
     with fs.open(waterbodies_uids_fp, "w") as file:
-        file.write(json.dumps(multi_tile_uids) + "\n")
+        json.dump(multi_tile_uids, file, indent=2)
 
     _log.info(
         f"Waterbodies' UIDs for vector processing of water quality summaries written to {waterbodies_uids_fp}"
