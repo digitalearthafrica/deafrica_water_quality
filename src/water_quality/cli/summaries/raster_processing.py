@@ -73,7 +73,7 @@ def cli(
     TASKS: a text file containing a list of the DE Africa Waterbodies Historical
     Extent COGs to be processed.
 
-    WATERBODIES_TO_FILTER: a text file containing a list of waterbodies to be
+    WATERBODIES_TO_FILTER: a json file containing a list of waterbodies to be
     excluded from the raster based processing of the water quality annual summaries.
     These are waterbodies that cover multiple tiles and will be processed separately
     using the vector based processing tool.
