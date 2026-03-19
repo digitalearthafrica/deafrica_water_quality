@@ -8,13 +8,13 @@ import dask
 import numpy as np
 import pandas as pd
 import rioxarray
-import xarray as xr
 from datacube import Datacube
 from waterbodies.db import get_waterbodies_engine
 
 from water_quality.io import check_directory_exists, get_filesystem, join_url
 from water_quality.logs import setup_logging
 from water_quality.summaries.summary import (
+    REQUIRED_COLUMNS,
     add_water_quality_observations_to_db,
     check_obs_ids,
 )
@@ -93,11 +93,11 @@ def cli(
 
     fs = get_filesystem(waterbodies_to_exclude, anon=False)
     with fs.open(waterbodies_to_exclude, "r") as file:
-        uids_to_exclude = sorted(set(json.load(file).keys()))
+        uids_to_exclude = list(json.load(file).keys())
 
     fs = get_filesystem(raster_processing_tasks, anon=False)
     with fs.open(raster_processing_tasks, "r") as file:
-        all_tasks = sorted(json.load(file))
+        all_tasks = file.read().splitlines()
 
     tasks_to_run = split_tasks(all_tasks, max_parallel_steps, worker_idx)
 
@@ -305,12 +305,17 @@ def cli(
                 _log.info(
                     f"Processing per waterbody quantiles for the {measurement} variable"
                 )
-                with xr.set_options(use_flox=False):
-                    # groupby egearly computes.
-                    quantiles_da = (
-                        ds[measurement].groupby(extent_da).quantile(quantiles)
-                    )
-                quantiles_df = quantiles_da.to_dataframe().unstack("quantile")
+                da_rechunked = ds[measurement].chunk({"time": -1})
+                quantiles_da = (
+                    da_rechunked.groupby(extent_da)
+                    .quantile(quantiles, dim=("x", "y"))
+                    .compute()
+                )
+                quantiles_df = (
+                    quantiles_da.to_dataframe()
+                    .drop(columns=df_drop_columns)
+                    .unstack("quantile")
+                )
                 quantiles_df.columns = [
                     f"{measurement}_q{q}".replace(".", "_")
                     for _, q in quantiles_df.columns
@@ -356,6 +361,18 @@ def cli(
             per_waterbody_summaries = per_waterbody_summaries[cols].drop(
                 columns=["wb_id"]
             )
+
+            missing = set(REQUIRED_COLUMNS) - set(
+                per_waterbody_summaries.columns
+            )
+            if missing:
+                raise ValueError(f"Missing required columns: {missing}")
+
+            extra = set(per_waterbody_summaries.columns) - set(
+                REQUIRED_COLUMNS
+            )
+            if extra:
+                raise ValueError(f"Found extra columns: {extra}")
 
             add_water_quality_observations_to_db(
                 water_quality_measures=per_waterbody_summaries,
