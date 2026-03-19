@@ -25,11 +25,11 @@ from water_quality.tasks import split_tasks
     no_args_is_help=True,
 )
 @click.argument(
-    "tasks",
+    "raster-processing-tasks",
     type=str,
 )
 @click.argument(
-    "waterbodies-to-filter",
+    "waterbodies-to-exclude",
     type=str,
 )
 @click.argument(
@@ -59,8 +59,8 @@ from water_quality.tasks import split_tasks
     help="control the log level, e.g., --log=error",
 )
 def cli(
-    tasks: str,
-    waterbodies_to_filter: str,
+    raster_processing_tasks: str,
+    waterbodies_to_exclude: str,
     max_parallel_steps: int,
     worker_idx: int,
     overwrite: bool,
@@ -73,9 +73,10 @@ def cli(
     TASKS: a text file containing a list of the DE Africa Waterbodies Historical
     Extent COGs to be processed.
 
-    WATERBODIES_TO_FILTER: a json file containing a list of waterbodies to be
-    excluded from the raster based processing of the water quality annual summaries.
-    These are waterbodies that cover multiple tiles and will be processed separately
+    WATERBODIES_TO_FILTER: a json file containing a mapping of waterbodies uids
+    and their corresponding historical extent COGs that cover multiple tiles.
+    The waterbodies in this file will be excluded from the raster based processing
+    of the water quality annual summaries and instead will be processed separately
     using the vector based processing tool.
 
     MAX_PARALLEL_STEPS: The total number of parallel workers or pods
@@ -89,12 +90,12 @@ def cli(
     log_level = getattr(logging, log.upper())
     _log = setup_logging(log_level)
 
-    fs = get_filesystem(waterbodies_to_filter, anon=False)
-    with fs.open(waterbodies_to_filter, "r") as file:
-        uids_to_exclude = set(sorted(json.load(file)))
+    fs = get_filesystem(waterbodies_to_exclude, anon=False)
+    with fs.open(waterbodies_to_exclude, "r") as file:
+        uids_to_exclude = sorted(set(json.load(file).keys()))
 
-    fs = get_filesystem(tasks, anon=False)
-    with fs.open(tasks, "r") as file:
+    fs = get_filesystem(raster_processing_tasks, anon=False)
+    with fs.open(raster_processing_tasks, "r") as file:
         all_tasks = sorted(json.load(file))
 
     tasks_to_run = split_tasks(all_tasks, max_parallel_steps, worker_idx)
@@ -121,7 +122,6 @@ def cli(
     ]
     product = "wq_annual"
     dask_chunks = {"x": 3000, "y": 3000}
-    # m2_per_km2 = 1_000_000
     quantiles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     engine = get_waterbodies_engine()
@@ -155,10 +155,18 @@ def cli(
                 wb_ids_to_exclude
             )
 
-            if len(wb_ids_to_exclude) > 0:
+            wb_ids_to_keep = list(wb_id_to_uid_filtered.keys())
+
+            if len(wb_ids_to_keep) > 0:
                 extent_da = extent_da.where(
-                    ~extent_da.isin(wb_ids_to_exclude), other=0
+                    extent_da.isin(wb_ids_to_keep), other=0
                 )
+            else:
+                _log.info(
+                    "No waterbodies for raster processing in this COG after filtering. Skipping "
+                    "processing for this historical extent COG file."
+                )
+                continue
 
             extent_da = extent_da.where(extent_da != 0)
 
@@ -169,6 +177,15 @@ def cli(
                 measurements=measurements,
                 dask_chunks=dask_chunks,
             )
+
+            # Edge case: If no data is available for the historical extent COG
+            if len(list(ds.data_vars)) == 0:
+                _log.info(
+                    "No data available for any year for this historical extent COG. "
+                    "Skipping processing for this historical extent COG file."
+                )
+                continue
+
             years = [
                 pd.Timestamp(year).strftime("%Y/%m/%d")
                 for year in ds.time.values
@@ -193,14 +210,15 @@ def cli(
 
             if not obs_ids:
                 _log.info(
-                    f"All possible water quality observations for waterbodies in the historical extent COG file {cog_path} "
-                    "already exist in the database and overwrite is set to False. Skipping "
-                    "processing for this historical extent COG file."
+                    "All possible water quality observations for waterbodies in this historical "
+                    "extent COG file already exist in the database and overwrite is set to False. "
+                    "Skipping processing for this historical extent COG file."
                 )
                 continue
 
             _log.info(
-                f"Processing per waterbody statistics for {ds.time.size} years for {len(wb_id_to_uid_filtered)} waterbodies ..."
+                f"Processing per waterbody statistics for {ds.time.size} years for "
+                f"{len(wb_id_to_uid_filtered)} waterbodies ..."
             )
             df_drop_columns = ["band", "spatial_ref"]
 
