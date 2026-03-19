@@ -138,15 +138,28 @@ def cli(
                         engine="rasterio",
                         combine="by_coords",
                         join="outer",
-                        chunks={"x": 9600, "y": 9600},
+                        chunks={
+                            "x": 9600,
+                            "y": 9600,
+                        },
                     )
                     .squeeze()["band_data"]
                     .chunk(dask_chunks)
                 )
-                raise NotImplementedError(
-                    "Vector processing not implemented for waterbodies covering more than 2 "
-                    "historical extent COGs."
-                )
+
+                wb_id_to_uid = {
+                    int(wb_id): uid
+                    for wb_id, uid in json.loads(
+                        extent_da.attrs["WB_ID_to_UID"]
+                    ).items()
+                }
+                uid_to_wb_id = {v: k for k, v in wb_id_to_uid.items()}
+                waterbody_wb_id = uid_to_wb_id[waterbody_uid]
+
+                extent_da = extent_da.where(
+                    extent_da == waterbody_wb_id
+                ).astype(np.float32)
+
             else:
                 gridspec = get_waterbodies_grid()
                 waterbody_gdf = get_waterbody(waterbody_uid).to_crs(

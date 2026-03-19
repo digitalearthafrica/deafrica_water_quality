@@ -1,0 +1,719 @@
+{
+  "ssjgw4b92f": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y106.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y107.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y107.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y106.tif"
+  ],
+  "s99xyj1jsu": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x205y090.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x205y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y090.tif"
+  ],
+  "sbf4rp107w": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x218y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x218y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y083.tif"
+  ],
+  "ecmpmkkyc3": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y087.tif"
+  ],
+  "kkxxd0gkye": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y052.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y052.tif"
+  ],
+  "ker370cmc1": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y042.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y043.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y042.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y043.tif"
+  ],
+  "kvs674m33z": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x220y058.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x220y059.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x221y058.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x221y059.tif"
+  ],
+  "ebuvvr02vk": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y084.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y084.tif"
+  ],
+  "sb9srm37tf": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y081.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y080.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y083.tif"
+  ],
+  "ec4uwy1csk": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y085.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y086.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x173y086.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x173y085.tif"
+  ],
+  "kkerd45786": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y052.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y052.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y053.tif"
+  ],
+  "kv33hdu0fy": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y056.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y057.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y057.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y056.tif"
+  ],
+  "kzt50mmzf9": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x222y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x221y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x222y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x221y073.tif"
+  ],
+  "s2bd5ecd0k": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x193y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x192y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x192y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x193y082.tif"
+  ],
+  "kxtfvxngj2": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y074.tif"
+  ],
+  "kq70pdhry6": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y064.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y063.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y063.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y064.tif"
+  ],
+  "s3w5sdpw95": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y088.tif"
+  ],
+  "s2q8q2n6ey": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y078.tif"
+  ],
+  "kz37rj1x5j": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y072.tif"
+  ],
+  "kz2gmwz3jw": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y071.tif"
+  ],
+  "sdxt9p875y": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y095.tif"
+  ],
+  "ked6sxt6vh": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y045.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y045.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y044.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y044.tif"
+  ],
+  "s0y3ey3nrt": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x189y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x190y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x190y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x189y083.tif"
+  ],
+  "eduspnt9h9": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x165y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x164y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x165y098.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x164y098.tif"
+  ],
+  "km487qq42m": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x195y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x195y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y054.tif"
+  ],
+  "kmfxhnkc24": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x195y061.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y062.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x195y062.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y061.tif"
+  ],
+  "ecbum17621": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x171y090.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x171y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x170y090.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x170y091.tif"
+  ],
+  "ksceyg08tq": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x205y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x205y053.tif"
+  ],
+  "kxssw393n8": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y073.tif"
+  ],
+  "s0ufq4ycqz": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y083.tif"
+  ],
+  "s1ubtpfzs5": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y090.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y090.tif"
+  ],
+  "s43e8y3k6t": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x182y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x183y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x183y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x182y095.tif"
+  ],
+  "edq17mnd00": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x166y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x166y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x167y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x167y094.tif"
+  ],
+  "kqyjuguyfy": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y069.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y068.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y068.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y069.tif"
+  ],
+  "ktv79tybvf": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y060.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y060.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y061.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y061.tif"
+  ],
+  "kswxs8xqff": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y052.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y052.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y053.tif"
+  ],
+  "efef0njrqu": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x175y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x175y095.tif"
+  ],
+  "s0vtvpgq7e": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x189y084.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y084.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x189y083.tif"
+  ],
+  "s1jdm4gjqc": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x189y084.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y085.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y084.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x189y085.tif"
+  ],
+  "s0u1xt9wb2": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x186y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x186y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y083.tif"
+  ],
+  "ef7vb0x40e": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x175y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x175y095.tif"
+  ],
+  "kwj23tt6h9": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y062.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y061.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y062.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y061.tif"
+  ],
+  "kdv4wykncp": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y039.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y040.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y040.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y039.tif"
+  ],
+  "s9mzjqf0c6": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y087.tif"
+  ],
+  "eftntdewd7": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y096.tif"
+  ],
+  "kuxdy7cgbp": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x226y052.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x225y051.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x226y051.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x225y052.tif"
+  ],
+  "kmzf991p82": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y060.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y061.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y061.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y060.tif"
+  ],
+  "kdejgrjy06": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y038.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y039.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y039.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y038.tif"
+  ],
+  "edk8jmp9z0": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x165y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x165y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x164y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x164y093.tif"
+  ],
+  "s8dsyjvdjr": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y081.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y081.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y081.tif"
+  ],
+  "edkuud6du4": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x166y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x166y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x165y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x165y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x164y094.tif"
+  ],
+  "kyh13295wt": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x219y062.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x219y061.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x220y062.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x221y063.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x221y062.tif"
+  ],
+  "s8r2srdtrr": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y077.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y079.tif"
+  ],
+  "kscmjczxqg": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x205y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y055.tif"
+  ],
+  "sf256nhvcu": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y092.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y094.tif"
+  ],
+  "kups9d2utv": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x224y049.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x225y048.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x226y048.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x226y049.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x224y048.tif"
+  ],
+  "mj15m91jkj": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x228y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x227y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x227y056.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x227y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x228y055.tif"
+  ],
+  "kx6mwjwcjw": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y071.tif"
+  ],
+  "s8mcrzbwwc": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y081.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y080.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y079.tif"
+  ],
+  "ktw4xxwn5n": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y058.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y057.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y059.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y058.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y059.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y060.tif"
+  ],
+  "kwwfskvvxs": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y066.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y066.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y067.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y067.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y065.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y065.tif"
+  ],
+  "edwzn0km4p": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x169y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x169y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x168y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x168y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x167y098.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x167y097.tif"
+  ],
+  "ktnqubtex8": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y056.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y056.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y056.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y056.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y055.tif"
+  ],
+  "s1gj67uqye": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x185y090.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x184y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x185y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x183y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x184y092.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x185y092.tif"
+  ],
+  "ksgzwbdddg": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y055.tif"
+  ],
+  "kwkktd05zk": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y065.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y066.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y066.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y065.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y064.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y063.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y064.tif"
+  ],
+  "s3emckutj5": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y090.tif"
+  ],
+  "kubv6vvj9z": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y056.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y054.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y053.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x217y052.tif"
+  ],
+  "kwepp6q0wf": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x209y067.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y067.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y069.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y070.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y068.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y067.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y066.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y066.tif"
+  ],
+  "ecrfmnkvmz": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x181y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x180y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x181y086.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x180y086.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x179y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x181y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x181y085.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x180y085.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x180y088.tif"
+  ],
+  "ssy3x9zv9t": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y112.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y110.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y113.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y109.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y111.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y113.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y112.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y110.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y114.tif"
+  ],
+  "kt23j20h9w": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y059.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y056.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y058.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y060.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y059.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y055.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y057.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y057.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y056.tif"
+  ],
+  "kvbe9t2dk9": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y058.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y059.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y061.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y063.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y058.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y062.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y062.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y059.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y060.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y057.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y061.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y064.tif"
+  ],
+  "efy51z7mgq": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x178y099.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x180y099.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x179y099.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x181y098.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x180y098.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x181y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x178y098.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y098.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y096.tif"
+  ],
+  "kwvk854nd8": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y067.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y068.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y066.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y068.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y069.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y067.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y070.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y066.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y069.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y065.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x210y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y065.tif"
+  ],
+  "s3ggfte2b5": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x195y092.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y090.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y090.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y092.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x195y093.tif"
+  ],
+  "ef73e901xq": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x173y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y092.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x172y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x171y092.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x173y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x171y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x172y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x172y092.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x174y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x175y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x177y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x175y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x176y096.tif"
+  ],
+  "kxz3szvvke": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y077.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y077.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y077.tif"
+  ],
+  "s1mk56v9k6": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x190y086.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x185y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x190y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x189y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x188y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y086.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x186y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x192y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x193y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x192y089.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x191y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x191y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y087.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y085.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x186y088.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y084.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x186y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x187y083.tif"
+  ],
+  "sewvr0derz": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y100.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y105.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y101.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y103.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y100.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y102.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y104.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x216y099.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y100.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y104.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y101.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y100.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y105.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y106.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y107.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y102.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y101.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x215y099.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x211y102.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y098.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y101.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y099.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x212y106.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y098.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y097.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x214y107.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y106.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y096.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y092.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y091.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y093.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y095.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y094.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x213y090.tif"
+  ],
+  "krvt190zcz": [
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x205y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y081.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y080.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x205y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y070.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y081.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y077.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y070.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x205y077.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x195y070.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x203y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x207y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y072.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x201y070.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y083.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y080.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y077.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x204y082.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y070.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y077.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x200y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x206y076.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y075.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y073.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x196y071.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x202y069.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x199y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x208y079.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x197y074.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y077.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y078.tif",
+    "s3://deafrica-water-quality-dev/historical-extent-rasters/historical_extent_x198y076.tif"
+  ]
+}
