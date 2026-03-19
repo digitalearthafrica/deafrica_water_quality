@@ -8,6 +8,7 @@ import dask
 import numpy as np
 import pandas as pd
 import rioxarray
+import xarray as xr
 from datacube import Datacube
 from waterbodies.db import get_waterbodies_engine
 
@@ -306,16 +307,29 @@ def cli(
                     f"Processing per waterbody quantiles for the {measurement} variable"
                 )
                 da_rechunked = ds[measurement].chunk({"time": -1})
-                quantiles_da = (
-                    da_rechunked.groupby(extent_da)
-                    .quantile(quantiles, dim=("x", "y"))
-                    .compute()
-                )
-                quantiles_df = (
-                    quantiles_da.to_dataframe()
-                    .drop(columns=df_drop_columns)
-                    .unstack("quantile")
-                )
+                try:
+                    # This works for most historical extent COG tiles.
+                    quantiles_da = (
+                        da_rechunked.groupby(extent_da)
+                        .quantile(quantiles, dim=("x", "y"))
+                        .compute()
+                    )
+                    quantiles_df = (
+                        quantiles_da.to_dataframe()
+                        .drop(columns=df_drop_columns)
+                        .unstack("quantile")
+                    )
+                except ValueError:
+                    with xr.set_options(use_flox=False):
+                        quantiles_da = (
+                            da_rechunked.groupby(extent_da)
+                            .quantile(quantiles, dim=("stacked_y_x"))
+                            .compute()
+                        )
+                        quantiles_df = quantiles_da.to_dataframe().unstack(
+                            "quantile"
+                        )
+
                 quantiles_df.columns = [
                     f"{measurement}_q{q}".replace(".", "_")
                     for _, q in quantiles_df.columns
