@@ -5,6 +5,7 @@ import sys
 
 import click
 import dask
+import numpy as np
 import pandas as pd
 import rioxarray
 import xarray as xr
@@ -121,7 +122,7 @@ def cli(
         "water_mask",
     ]
     product = "wq_annual"
-    dask_chunks = {"x": 3000, "y": 3000}
+    dask_chunks = {"x": 3200, "y": 3200}
     quantiles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     engine = get_waterbodies_engine()
@@ -133,6 +134,13 @@ def cli(
         )
         try:
             extent_da = rioxarray.open_rasterio(cog_path).squeeze()
+
+            # During rasterization of the historical extent COGs, the nodata
+            # value was set to 0. The processing makes the assumption that this
+            # is maintained. If this assumption is violated, summaries produced
+            # will be incorrect.
+            nodata_val = 0
+            assert nodata_val == extent_da.odc.nodata
 
             wb_id_to_uid = {
                 int(wb_id): uid
@@ -159,16 +167,18 @@ def cli(
 
             if len(wb_ids_to_keep) > 0:
                 extent_da = extent_da.where(
-                    extent_da.isin(wb_ids_to_keep), other=0
+                    extent_da.isin(wb_ids_to_keep), other=nodata_val
                 )
             else:
                 _log.info(
-                    "No waterbodies for raster processing in this COG after filtering. Skipping "
-                    "processing for this historical extent COG file."
+                    "No waterbodies for raster processing in this COG after filtering. "
+                    "Skipping processing for this historical extent COG file."
                 )
                 continue
 
-            extent_da = extent_da.where(extent_da != 0)
+            extent_da = extent_da.where(extent_da != nodata_val).astype(
+                np.float32
+            )
 
             # Load all years of data available
             ds = dc.load(
@@ -179,10 +189,10 @@ def cli(
             )
             ds = ds.where(extent_da)
 
-            # Edge case: If no data is available for the historical extent COG
+            # Edge case: If no wq_annual data is available for the historical extent COG
             if len(list(ds.data_vars)) == 0:
                 _log.info(
-                    "No data available for any year for this historical extent COG. "
+                    f"No {product} data available for any year for this historical extent COG. "
                     "Skipping processing for this historical extent COG file."
                 )
                 continue
