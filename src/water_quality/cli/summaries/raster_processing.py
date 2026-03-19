@@ -70,7 +70,7 @@ def cli(
     Generate annual summaries of water quality variables for DE Africa waterbodies
     using raster based processing.
 
-    TASKS: a text file containing a list of the DE Africa Waterbodies Historical
+    RASTER_PROCESSING_TASKS: a text file containing a list of the DE Africa Waterbodies Historical
     Extent COGs to be processed.
 
     WATERBODIES_TO_FILTER: a json file containing a mapping of waterbodies uids
@@ -177,6 +177,7 @@ def cli(
                 measurements=measurements,
                 dask_chunks=dask_chunks,
             )
+            ds = ds.where(extent_da)
 
             # Edge case: If no data is available for the historical extent COG
             if len(list(ds.data_vars)) == 0:
