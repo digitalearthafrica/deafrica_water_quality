@@ -77,6 +77,12 @@ def cli(
         uids = sorted(list(wbid_to_uid.values()))
         cog_path_to_uids[cog_path] = uids
 
+    # Sort to ensure during parallel processing
+    # tasks requiring the shortest time are processed first.
+    cog_path_to_uids = dict(
+        sorted(cog_path_to_uids.items(), key=lambda x: len(x[1]))
+    )
+
     assert len(cog_path_to_uids) == len(historical_extent_cogs)
 
     uids_to_cog_paths = defaultdict(list)
@@ -84,10 +90,22 @@ def cli(
         for uid in uids:
             uids_to_cog_paths[uid].append(cog_path)
 
+    # Sort to ensure during parallel processing
+    # tasks requiring the shortest time are processed first.
+    uids_to_cog_paths = dict(
+        sorted(uids_to_cog_paths.items(), key=lambda x: len(x[1]))
+    )
+
     multi_tile_uids = {}
     for uid, cog_paths in uids_to_cog_paths.items():
         if len(cog_paths) > 1:
             multi_tile_uids[uid] = cog_paths
+
+    # Sort to ensure during parallel processing
+    # tasks requiring the shortest time are processed first.
+    multi_tile_uids = dict(
+        sorted(multi_tile_uids.items(), key=lambda x: len(x[1]))
+    )
 
     _log.info(
         f"Found {len(multi_tile_uids)} waterbodies covered by more than 1 historical extent COG. "
@@ -98,9 +116,7 @@ def cli(
     if not check_directory_exists(path=output_dir):
         fs.mkdirs(path=output_dir, exist_ok=True)
 
-    waterbodies_uids_fp = join_url(
-        output_dir, "waterbodies_for_vector_processing"
-    )
+    waterbodies_uids_fp = join_url(output_dir, "vector_processing_tasks.json")
     with fs.open(waterbodies_uids_fp, "w") as file:
         json.dump(multi_tile_uids, file, indent=2)
 
@@ -108,9 +124,13 @@ def cli(
         f"Waterbodies' UIDs for vector processing of water quality summaries written to {waterbodies_uids_fp}"
     )
 
-    historical_extent_rasters_fp = join_url(output_dir, "tasks")
-    with fs.open(historical_extent_rasters_fp, "w") as file:
-        file.write(json.dumps(historical_extent_cogs) + "\n")
+    raster_processing_tasks = list(cog_path_to_uids.keys())
+
+    raster_processing_tasks_fp = join_url(
+        output_dir, "raster_processing_tasks.txt"
+    )
+    with fs.open(raster_processing_tasks_fp, "w") as file:
+        file.write("\n".join(raster_processing_tasks))
     _log.info(
-        f"Historical extent rasters for raster processing of water quality summaries written to {historical_extent_rasters_fp}"
+        f"Historical extent rasters for raster processing of water quality summaries written to {raster_processing_tasks_fp}"
     )
