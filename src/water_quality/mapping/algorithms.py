@@ -73,6 +73,151 @@ def ChlA_MODIS2B(
     return (190.34 * X) - 32.45
 
 
+# Helper functions for ChlA_TC2
+def below_water_reflectance(da: xr.DataArray) -> xr.DataArray:
+    """Convert scaled satellite reflectance (Rrs) to below-surface reflectance (rrs)."""
+    Rrs = da * 0.0001
+    return Rrs / (0.52 + 1.7 * Rrs)
+
+def mu(rrs: xr.DataArray) -> xr.DataArray:
+    """Compute mu parameter from below-surface reflectance (rrs) (Liu et al. 2020)."""
+    g0 = -0.089
+    g1 = 0.125
+    return (g0 + np.sqrt(g0**2 + 4 * g1 * rrs)) / (2 * g1)
+
+def MCI(R665: xr.DataArray, R704: xr.DataArray, R740: xr.DataArray) -> xr.DataArray:
+    """Maximum Chlorophyll Index (MCI) from Gower et al., 2005 as in Zhao et al., 2024."""
+    k = (704 - 665) / (740 - 665)
+    return R704 - R665 - (R740 - R665) * k
+
+def backscatter_coeffs(
+    L: float,
+    L0_lambda: float,
+    L0_part_backscatter: xr.DataArray,
+    Exponent: xr.DataArray,
+    clear_water_backscatter: float
+) -> xr.DataArray:
+    """Spectral backscatter coefficient model (Liu et al., 2020)."""
+    return L0_part_backscatter * (L0_lambda / L) ** Exponent + clear_water_backscatter
+
+def non_water_abs(
+    rs_data: xr.DataArray,
+    backscatter_coefficient: xr.DataArray,
+    clearwater_absorption_coefficient: float
+) -> xr.DataArray:
+    """Non-water absorption estimate (Liu et al., 2020)."""
+    mL = mu(below_water_reflectance(rs_data))
+    return (1 - mL) * backscatter_coefficient / mL - clearwater_absorption_coefficient
+
+def chla_from_nonwater_absorption(
+    anw665: xr.DataArray,
+    anw560: xr.DataArray,
+    anw704: xr.DataArray
+) -> xr.DataArray:
+    """Chlorophyll-a from non-water absorption (Liu et al., 2020)."""
+    p_ = 0.17
+    aph665 = anw665 - p_ * anw560 - (1 - p_) * anw704
+    aChla = 0.017
+    return aph665 / aChla
+
+def ChlA_tc2(
+    ds,
+    band_443,
+    band_560,
+    band_665,
+    band_704,
+    band_740,
+):
+    """
+    TC2 chlorophyll-a algorithm for MSI data.
+
+    Based on Liu et al. (2020) https://doi.org/10.1016/j.rse.2020.111648,
+    Gower et al. (2005), and Zhao et al. (2024).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Input reflectance dataset.
+    band_443, band_560, band_665, band_704, band_740 : str
+        Band names in the dataset.
+
+    Returns
+    -------
+    xr.DataArray
+        Chlorophyll-a concentration estimate.
+    """
+
+    # Parameters used in the analysis
+    p = {}
+    p['443'] = {'bname': band_443, 'la': 443, 'bw': 0.00219, 'aw': 0.00680}
+    p['560'] = {'bname': band_560, 'la': 560, 'bw': 0.00081, 'aw': 0.06215}
+    p['665'] = {'bname': band_665, 'la': 665, 'bw': 0.00039, 'aw': 0.42850}
+    p['704'] = {'bname': band_704, 'la': 704, 'bw': 0.00031, 'aw': 0.71502}
+    p['740'] = {'bname': band_740, 'la': 740, 'bw': 0.00025, 'aw': 1.91400}
+
+    # Determine the MCI (Gower et al 2005; Zhao et al 2024)
+    MCI_threshold = 0.0016
+    p['MCI'] = MCI(
+        ds[p['665']['bname']] * 0.0001,
+        ds[p['704']['bname']] * 0.0001,
+        ds[p['740']['bname']] * 0.0001
+    )
+
+    # Power-law exponent for particulate backscatter (pixel-wise)
+    Y = 2.0 * (
+        1 - 1.2 * np.exp(
+            -0.9
+            * below_water_reflectance(ds[p['443']['bname']])
+            / below_water_reflectance(ds[p['560']['bname']])
+        )
+    )
+
+    for option in [704, 740]:
+        L0 = option
+
+        L0m = mu(
+            below_water_reflectance(ds[p[str(L0)]['bname']])
+        )
+
+        L0la = p[str(L0)]['la']
+        L0aw = p[str(L0)]['aw']
+        L0bw = p[str(L0)]['bw']
+
+        # Estimate particulate backscatter at L0
+        L0bp = (L0m * L0aw) / (1 - L0m) - L0bw
+
+        # Calculate backscatter coefficients for each band
+        for l in [560, 665, 704, 740]:
+            p[str(l)]['backscatter'] = backscatter_coeffs(
+                L=l,
+                L0_lambda=L0la,
+                L0_part_backscatter=L0bp,
+                Exponent=Y,
+                clear_water_backscatter=p[str(l)]['bw']
+            )
+
+        # Calculate non-water absorption for each band
+        for l in [560, 665, 704]:
+            l = str(l)
+            p[l]['anw'] = non_water_abs(
+                rs_data=ds[p[l]['bname']],
+                backscatter_coefficient=p[l]['backscatter'],
+                clearwater_absorption_coefficient=p[l]['aw']
+            )
+
+        # Retrieve chlorophyll-a estimates
+        p['chla' + str(L0)] = chla_from_nonwater_absorption(
+            anw665=p['665']['anw'],
+            anw560=p['560']['anw'],
+            anw704=p['704']['anw']
+        )
+
+    return xr.where(
+        p['MCI'] < MCI_threshold,
+        p['chla704'],
+        p['chla740']
+    )
+
 def NDSSI_RG(
     dataset: xr.Dataset, red_band: str, green_band: str
 ) -> xr.DataArray:
@@ -80,7 +225,6 @@ def NDSSI_RG(
     return (dataset[red_band] - dataset[green_band]) / (
         dataset[red_band] + dataset[green_band]
     )
-
 
 def NDSSI_BNIR(
     dataset: xr.Dataset, blue_band: str, NIR_band: str
@@ -343,6 +487,14 @@ def set_wq_algorithms(suffix=""):
         },
     }
 
+    chla_tc2 = {
+        "msi" + s: {
+            "func": ChlA_TC2,
+            "wq_varname": "chla_tc2_msi",
+            "args": {"band_443": "msi01" + s, "band_560": "msi03" + s, "band_665": "msi04" + s, "band_704": "msi05" + s, "band_740": "msi06" + s},
+        }
+    }
+
     ndssi_rg = {
         "msi" + s: {
             "func": NDSSI_RG,
@@ -498,6 +650,7 @@ def set_wq_algorithms(suffix=""):
         "chla_tebbs": chla_tebbs,
         "chla_meris2b": chla_meris2b,
         "chla_modis2b": chla_modis2b,
+        "chla_tc2": chla_tc2
     }
     algorithms_tsm = {
         "ndssi_rg": ndssi_rg,
