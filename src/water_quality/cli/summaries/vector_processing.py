@@ -10,10 +10,11 @@ import pandas as pd
 import rioxarray
 import xarray as xr
 from datacube import Datacube
+from datacube.testutils.io import rio_slurp_xarray
 from deafrica_tools.waterbodies import get_waterbody
 from odc.geo.geobox import GeoBox
 from odc.geo.geom import Geometry
-from odc.geo.xr import rasterize
+from odc.geo.xr import rasterize, xr_reproject
 from waterbodies.db import get_waterbodies_engine
 
 from water_quality.grid import get_waterbodies_grid
@@ -25,6 +26,7 @@ from water_quality.summaries.summary import (
     check_obs_ids,
 )
 from water_quality.tasks import split_tasks
+from water_quality.tiling import reproject_tile_geobox
 
 
 @click.command(
@@ -126,41 +128,9 @@ def cli(
             f"Processing waterbody {idx + 1} of {len(tasks_to_run)}: {waterbody_uid} "
         )
         try:
-            _log.info(
-                f"Processing waterbody {idx + 1} of {len(tasks_to_run)}: {waterbody_uid} "
-            )
             historical_extent_cogs = uids_to_cogs[waterbody_uid]
 
-            if len(historical_extent_cogs) > 2:
-                extent_da = (
-                    xr.open_mfdataset(
-                        historical_extent_cogs,
-                        engine="rasterio",
-                        combine="by_coords",
-                        join="outer",
-                        chunks={
-                            "x": 9600,
-                            "y": 9600,
-                        },
-                    )
-                    .squeeze()["band_data"]
-                    .chunk(dask_chunks)
-                )
-
-                wb_id_to_uid = {
-                    int(wb_id): uid
-                    for wb_id, uid in json.loads(
-                        extent_da.attrs["WB_ID_to_UID"]
-                    ).items()
-                }
-                uid_to_wb_id = {v: k for k, v in wb_id_to_uid.items()}
-                waterbody_wb_id = uid_to_wb_id[waterbody_uid]
-
-                extent_da = extent_da.where(
-                    extent_da == waterbody_wb_id
-                ).astype(np.float32)
-
-            else:
+            if len(historical_extent_cogs) < 3:
                 gridspec = get_waterbodies_grid()
                 waterbody_gdf = get_waterbody(waterbody_uid).to_crs(
                     gridspec.crs
@@ -182,6 +152,43 @@ def cli(
                 extent_da = extent_da.where(extent_da != 0, np.nan).astype(
                     np.float32
                 )
+            else:
+                extent_da = (
+                    xr.open_mfdataset(
+                        historical_extent_cogs,
+                        engine="rasterio",
+                        combine="by_coords",
+                        join="outer",
+                        chunks={
+                            "x": 9600,
+                            "y": 9600,
+                        },
+                    )
+                    .squeeze()["band_data"]
+                    .chunk(dask_chunks)
+                )
+
+                if len(historical_extent_cogs) > 3:
+                    new_geobox = reproject_tile_geobox(
+                        extent_da.odc.geobox, 30
+                    )
+                    extent_da = xr_reproject(
+                        extent_da, how=new_geobox, resampling="nearest"
+                    ).chunk(dask_chunks)
+
+                extent_da.name = "band"
+                wb_id_to_uid = {
+                    int(wb_id): uid
+                    for wb_id, uid in json.loads(
+                        extent_da.attrs["WB_ID_to_UID"]
+                    ).items()
+                }
+                uid_to_wb_id = {v: k for k, v in wb_id_to_uid.items()}
+                waterbody_wb_id = uid_to_wb_id[waterbody_uid]
+
+                extent_da = extent_da.where(
+                    extent_da == waterbody_wb_id
+                ).astype(np.float32)
 
             # Load all years available for the wq_annual product.
             ds = dc.load(
@@ -189,6 +196,8 @@ def cli(
                 like=extent_da.odc.geobox,
                 measurements=measurements,
                 dask_chunks=dask_chunks,
+                # Resampling set to nearest to account for "water_mask"
+                resampling="nearest",
             )
             ds = ds.where(extent_da)
 
