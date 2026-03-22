@@ -120,7 +120,7 @@ def chla_from_nonwater_absorption(
     aChla = 0.017
     return aph665 / aChla
 
-def ChlA_tc2(
+def ChlA_TC2(
     ds,
     band_443,
     band_560,
@@ -825,6 +825,7 @@ def harmonize_wq_variables(input_ds: xr.Dataset) -> xr.Dataset:
         ref_var = lookup_table[lookup_table["target"] == target_var].iloc[0][
             "reference"
         ]
+
         if ref_var == target_var:
             log.debug(
                 f"Harmonization of variable {target_var} is not required since the reference variable is the same as the target variable."
