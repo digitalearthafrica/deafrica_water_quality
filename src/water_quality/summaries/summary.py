@@ -7,7 +7,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import Table
 from waterbodies.db import create_table
 
-from water_quality.summaries.db_models import WaterbodyWaterQuality
+from water_quality.summaries.db_models import (
+    WaterbodyWaterQuality,
+    WaterbodyWaterQualityPercentiles,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -296,3 +299,22 @@ def check_obs_ids(observation_ids: list[str], engine: Engine) -> list[str]:
             select(table.c.obs_id).where(table.c.obs_id.in_(observation_ids))
         ).all()
     return results
+
+
+def create_water_quality_percentiles_table(engine: Engine) -> Table:
+    """
+    Create the waterbodies_water_quality_percentiles table if it does not exist.
+
+    Parameters
+    ----------
+    engine : Engine
+
+    Returns
+    -------
+    Table
+        The waterbodies_water_quality_percentiles table.
+    """
+    table = create_table(
+        engine=engine, db_model=WaterbodyWaterQualityPercentiles
+    )
+    return table
