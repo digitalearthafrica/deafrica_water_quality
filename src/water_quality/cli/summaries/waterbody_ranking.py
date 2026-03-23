@@ -107,8 +107,8 @@ def cli(
         )
         avg_summaries.append(avg_summaries_df)
 
+    assert len(all_waterbodies_uids) == len(avg_summaries)
     per_waterbody_avg = pd.concat(avg_summaries, axis=0)
-    assert len(all_waterbodies_uids) == len(per_waterbody_avg)
 
     _log.info("Calculating percentiles for each water quality variable ...")
     quantiles = per_waterbody_avg.quantile(
@@ -126,7 +126,7 @@ def cli(
         )
 
     final_cols = [f"{col}_percentile" for col in required_columns]
-    water_quality_percentiles_df = per_waterbody_avg[final_cols]
+    water_quality_percentiles_df = per_waterbody_avg[final_cols].reset_index()
 
     add_water_quality_percentiles_to_db(
         water_quality_percentiles=water_quality_percentiles_df,
