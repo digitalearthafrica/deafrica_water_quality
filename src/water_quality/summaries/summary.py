@@ -318,3 +318,95 @@ def create_water_quality_percentiles_table(engine: Engine) -> Table:
         engine=engine, db_model=WaterbodyWaterQualityPercentiles
     )
     return table
+
+
+def add_water_quality_percentiles_to_db(
+    water_quality_percentiles: pd.DataFrame,
+    engine: Engine,
+    update_rows: bool = True,
+):
+    """
+    Add waterbody water quality percentiles to the water quality percentiles table.
+
+    Parameters
+    ----------
+    water_quality_percentiles : pd.DataFrame
+        Table containing the water quality percentiles to add to the database
+    engine : Engine
+    update_rows : bool, optional
+        If True if a water quality percentile for a waterbody already exists
+        in the table, the row will be updated else it will be skipped, by default True
+    """
+    table = create_water_quality_percentiles_table(engine=engine)
+
+    Session = sessionmaker(bind=engine)
+
+    # Note: Doing it this way because drill outputs can be millions of rows.
+    # Its best to do it in small batches.
+    obs_ids_to_check = water_quality_percentiles["uid"].to_list()
+    with Session.begin() as session:
+        obs_ids_exist = session.scalars(
+            select(table.c.uid).where(table.c.uid.in_(obs_ids_to_check))
+        ).all()
+        _log.info(
+            f"Found {len(obs_ids_exist)} out of {len(obs_ids_to_check)} waterbody "
+            f"observations already in the {table.name} table"
+        )
+
+    update_statements = []
+    insert_parameters = []
+
+    expected_columns = [
+        "uid",
+        "fai_cover_percentile",
+        "ndvi_cover_percentile",
+        "hue_q0_5_percentile",
+        "owt_q0_5_percentile",
+        "chla_q0_5_percentile",
+        "tsi_q0_5_percentile",
+        "tsm_q0_5_percentile",
+        "st_max_q0_5_percentile",
+        "st_median_q0_5_percentile",
+        "st_min_q0_5_percentile",
+    ]
+    update_columns = [
+        col for col in expected_columns if col != "uid"
+    ]  # exclude PK
+
+    for row in water_quality_percentiles.itertuples():
+        row_dict = {col: getattr(row, col) for col in expected_columns}
+
+        if row.uid not in obs_ids_exist:
+            insert_parameters.append(row_dict)
+        else:
+            if update_rows:
+                update_statements.append(
+                    update(table)
+                    .where(table.c.uid == row.uid)
+                    .values({col: getattr(row, col) for col in update_columns})
+                )
+            else:
+                continue
+
+    if update_statements:
+        _log.info(
+            f"Updating {len(update_statements)} water quality percentiles in the {table.name} table"
+        )
+        with Session.begin() as session:
+            for statement in update_statements:
+                session.execute(statement)
+    else:
+        _log.info(
+            f"No water quality percentiles to update in the {table.name} table"
+        )
+
+    if insert_parameters:
+        _log.info(
+            f"Inserting {len(insert_parameters)} water quality percentiles in the {table.name} table"
+        )
+        with Session.begin() as session:
+            session.execute(insert(table), insert_parameters)
+    else:
+        _log.error(
+            f"No water quality percentiles to insert into the {table.name} table"
+        )
