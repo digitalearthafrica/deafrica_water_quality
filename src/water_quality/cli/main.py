@@ -11,6 +11,12 @@ from water_quality.cli.summaries.raster_processing import (
 from water_quality.cli.summaries.rasterise_polygons import (
     cli as rasterise_polygons_cli,
 )
+from water_quality.cli.summaries.vector_processing import (
+    cli as process_vector_tasks_cli,
+)
+from water_quality.cli.summaries.waterbody_ranking import (
+    cli as waterbody_ranking_cli,
+)
 from water_quality.cli.variables.generate_tasks import (
     cli as generate_tasks_cli,
 )
@@ -72,3 +78,7 @@ def wqms_summaries():
 wqms_summaries.add_command(summaries_generate_tasks_cli)
 wqms_summaries.add_command(process_raster_tasks_cli)
 wqms_summaries.add_command(rasterise_polygons_cli)
+wqms_summaries.add_command(process_vector_tasks_cli)
+wqms_summaries.add_command(waterbody_ranking_cli)
+
+waterbody_ranking_cli
