@@ -258,6 +258,16 @@ def cli(
                 water_mask_count, fai_count, ndvi_count
             )
 
+            pixel_area_m2 = abs(
+                extent_da.odc.geobox.resolution.x
+                * extent_da.odc.geobox.resolution.y
+            )
+            water_area = (
+                (water_mask_count * pixel_area_m2)
+                .to_dataframe(name="water_area_m2")
+                .drop(columns=df_drop_columns, errors="ignore")
+            )
+
             # --- FAI cover (algae) ---
             fai_cover = (
                 fai_count / water_mask_count.where(water_mask_count > 0)
@@ -327,7 +337,13 @@ def cli(
                 quantiles_df_to_merge.append(quantiles_df)
 
             per_waterbody_summaries = pd.concat(
-                [*quantiles_df_to_merge, fai_cover_df, ndvi_cover_df], axis=1
+                [
+                    *quantiles_df_to_merge,
+                    fai_cover_df,
+                    ndvi_cover_df,
+                    water_area,
+                ],
+                axis=1,
             )
             # Dask clean up
             del (
@@ -336,6 +352,7 @@ def cli(
                 quantiles_df_to_merge,
                 fai_cover_df,
                 ndvi_cover_df,
+                water_area,
             )
             gc.collect()
 

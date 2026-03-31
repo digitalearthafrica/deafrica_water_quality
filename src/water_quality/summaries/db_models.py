@@ -96,6 +96,7 @@ class WaterbodyWaterQuality(WaterbodyBase):
 
     fai_cover: Mapped[float] = Column(Float, nullable=True)
     ndvi_cover: Mapped[float] = Column(Float, nullable=True)
+    water_area_m2: Mapped[float] = Column(Float, nullable=True)
 
     def __repr__(self) -> str:
         return (

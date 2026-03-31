@@ -92,6 +92,7 @@ REQUIRED_COLUMNS = [
     "st_min_q0_9",
     "fai_cover",
     "ndvi_cover",
+    "water_area_m2",
 ]
 
 
@@ -226,6 +227,7 @@ def add_water_quality_observations_to_db(
         "st_min_q0_9",
         "fai_cover",
         "ndvi_cover",
+        "water_area_m2",
     ]
     update_columns = [
         col for col in expected_columns if col != "obs_id"
