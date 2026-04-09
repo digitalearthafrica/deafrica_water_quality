@@ -805,7 +805,7 @@ def mu(da) :     # (Lui et al 2020)
     g0 = -0.089
     g1 =  0.125
     return(
-        ( g0 + pow((g0**2 + 4*g1*da),0.5)) / 2*g1
+        ( g0 + pow((g0**2 + 4*g1*da),0.5)) / ( 2*g1 )
     )
 
 def MCI(R665,R704,R740) : #(gower et al 2005 as in Zhao et al 2024)
