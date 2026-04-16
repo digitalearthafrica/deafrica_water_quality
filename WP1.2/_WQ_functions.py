@@ -358,7 +358,8 @@ def check_instrument_dates(instruments_to_use,year1,year2,verbose=True):
     for name in list(instruments_to_use.keys()):
         if verbose: print(name, instruments_to_use[name]['use'])
         if not (instrument_dates[name][1] >= int(year1) and instrument_dates[name][0] <= int(year2)):
-            if verbose: print('Instrument ',name,' has date ranges ',instrument_dates[name][0],instrument_dates[name][1],' outside of ',year1,year2)
+            if verbose: 
+                print('Instrument ',name,' has date ranges ',instrument_dates[name][0],instrument_dates[name][1],' outside of ',year1,year2)
             instruments_to_use[name]['use'] = False
     return(instruments_to_use)
 

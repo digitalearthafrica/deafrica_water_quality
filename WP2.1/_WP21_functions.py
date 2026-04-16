@@ -391,7 +391,7 @@ def build_dataset (spacetime_domain,
 
     #yet to switch this on...
     if instruments_to_use['tirs']['use'] :
-        test = test
+        
         if verbose : print('building the tirs dataset ...')
         instrument = 'tirs'
         # --- load tirs data
@@ -407,19 +407,21 @@ def build_dataset (spacetime_domain,
         # --- re-name the variables for the sake of sanity --- 
         ds_tirs = rename_vars_robust(ds_tirs,rename_dict['tirs'])
 
-        # adjust and qa the temperature 
-        ds_tirs['tirs_st']    = (ds_tirs.tirs_st * 0.00341802 + 149.0) - 273.15
-        ds_tirs['tirs_st_qa'] = ds_tirs['tirs_st_qa'] * 0.01    # -- uncertainty in kelvin 
-        ds_tirs['tirs_emis']  = ds_tirs['tirs_emis' ] * 0.0001  # -- emissivity fraction
-        ds_tirs['tirs_st']    = xr.where(ds_tirs['tirs_st'] > 0,
-                                xr.where(ds_tirs['tirs_st_qa'] < 5,
-                                     xr.where(ds_tirs['tirs_emis']> 0.95,
-                                              ds_tirs['tirs_st'],
-                                              np.nan),
-                                     np.nan),
-                                np.nan)
-
-        data_list['tirs']=ds_tirs
+        # --- allow for the possibility that the dataset is null ---
+        if 'tirs_st' in ds_tirs.data_vars :
+            # adjust and qa the temperature 
+            ds_tirs['tirs_st']    = (ds_tirs.tirs_st * 0.00341802 + 149.0) - 273.15
+            ds_tirs['tirs_st_qa'] = ds_tirs['tirs_st_qa'] * 0.01    # -- uncertainty in kelvin 
+            ds_tirs['tirs_emis']  = ds_tirs['tirs_emis' ] * 0.0001  # -- emissivity fraction
+            ds_tirs['tirs_st']    = xr.where(ds_tirs['tirs_st'] > 0,
+                                    xr.where(ds_tirs['tirs_st_qa'] < 5,
+                                         xr.where(ds_tirs['tirs_emis']> 0.95,
+                                                  ds_tirs['tirs_st'],
+                                                  np.nan),
+                                         np.nan),
+                                    np.nan)
+    
+            data_list['tirs']=ds_tirs
         if verbose : print('... done.')
 
     print('... instrument datasets complete\n')
